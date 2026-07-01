@@ -17,7 +17,7 @@ class Config:
     SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), 'dev.db')
 
     # MQTT（本地EMQX不变）
-    MQTT_BROKER_HOST = os.environ.get('MQTT_BROKER_HOST', '192.168.76.149')
+    MQTT_BROKER_HOST = os.environ.get('MQTT_BROKER_HOST', '182.92.86.89')
     MQTT_BROKER_PORT = int(os.environ.get('MQTT_BROKER_PORT', 1883))
     MQTT_USERNAME = os.environ.get('MQTT_USERNAME', '')
     MQTT_PASSWORD = os.environ.get('MQTT_PASSWORD', '')
