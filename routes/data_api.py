@@ -127,3 +127,20 @@ def get_all_recent(device_id):
             "light": rows_dict.get("light", [])
         }
     })
+
+# 最新N条数据（按条数而非时间窗口，用于历史曲线）
+@data_api_bp.route('/devices/<int:device_id>/data/latest-n', methods=['GET'])
+def get_latest_n(device_id):
+    if not DeviceModel.find_by_id(device_id):
+        return jsonify({'success': False, 'message': '设备不存在'}), 404
+    limit = int(request.args.get('limit', 100))
+    rows_dict = SensorDataModel.get_latest_n_rows(device_id, limit)
+
+    return jsonify({
+        'success': True,
+        'data': {
+            "temperature": rows_dict.get("temperature", []),
+            "humidity": rows_dict.get("humidity", []),
+            "light": rows_dict.get("light", [])
+        }
+    })

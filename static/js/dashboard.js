@@ -63,27 +63,42 @@ function initRealChart() {
         legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
         grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
         xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
-        // 恢复双Y轴 温度左、湿度右，移除光照轴
+        // 双Y轴：温度左轴（固定范围）、湿度光照右轴（固定范围）
         yAxis: [
             {
                 type: 'value',
                 name: '温度 °C',
+                min: -10,
+                max: 60,
                 nameTextStyle: { fontSize: 11, color: '#94a3b8' },
                 position: 'left',
                 splitLine: { lineStyle: { color: '#f1f5f9' } }
             },
             {
                 type: 'value',
-                name: '湿度 %',
+                name: '湿度% / 光照lux',
                 nameTextStyle: { fontSize: 11, color: '#94a3b8' },
                 position: 'right',
                 splitLine: { show: false }
             }
         ],
-        // 仅保留温度、湿度两条曲线，删除光照series
+        // 温度、湿度、光照 + 异常点散点
         series: [
-            { name: '温度', type: 'line', smooth: true, showSymbol: false, lineStyle: { color: '#ef4444', width: 2 }, data: [] },
-            { name: '湿度', type: 'line', smooth: true, showSymbol: false, yAxisIndex: 1, lineStyle: { color: '#3b82f6', width: 2 }, data: [] }
+            { name: '温度(°C)', type: 'line', smooth: false, showSymbol: false,
+              connectNulls: false, lineStyle: { color: '#ef4444', width: 2 }, data: [] },
+            { name: '湿度(%)', type: 'line', smooth: false, showSymbol: false,
+              connectNulls: false, yAxisIndex: 1, lineStyle: { color: '#3b82f6', width: 2 }, data: [] },
+            { name: '光照(lux)', type: 'line', smooth: false, showSymbol: false,
+              connectNulls: false, yAxisIndex: 1, lineStyle: { color: '#f59e0b', width: 2 }, data: [] },
+            { name: '温度异常', type: 'scatter', symbol: 'circle', symbolSize: 8,
+              itemStyle: { color: '#ef4444', borderColor: '#fff', borderWidth: 1 },
+              data: [], z: 10 },
+            { name: '湿度异常', type: 'scatter', symbol: 'circle', symbolSize: 8,
+              itemStyle: { color: '#3b82f6', borderColor: '#fff', borderWidth: 1 },
+              yAxisIndex: 1, data: [], z: 10 },
+            { name: '光照异常', type: 'scatter', symbol: 'circle', symbolSize: 8,
+              itemStyle: { color: '#f59e0b', borderColor: '#fff', borderWidth: 1 },
+              yAxisIndex: 1, data: [], z: 10 }
         ]
     });
     refreshChartData();
@@ -97,26 +112,50 @@ async function refreshChartData() {
         console.warn('[Dashboard] No sensor device found, chart data skipped');
         return;
     }
-    var d = await apiGet('/api/devices/' + did + '/data/all-recent?hours=2');
+    var d = await apiGet('/api/devices/' + did + '/data/latest-n?limit=100');
     if (!d.success) return;
-    var td = (d.data.temperature || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-    var hd = (d.data.humidity || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-    // 移除光照ld变量，只传温湿度
-    updateChartSeries(td, hd);
+
+    // 分离正常数据和异常值：正常数据参与连线，异常值单独标红散点
+    function splitPoints(arr) {
+        var normal = [], anomaly = [];
+        (arr || []).forEach(function(x) {
+            if (x.in_range !== false) {
+                normal.push([parseTime(x.recorded_at), x.value]);
+            } else {
+                anomaly.push([parseTime(x.recorded_at), x.value]);
+            }
+        });
+        return { normal: normal, anomaly: anomaly };
+    }
+
+    var tp = splitPoints(d.data.temperature);
+    var hp = splitPoints(d.data.humidity);
+    var lp = splitPoints(d.data.light);
+
+    updateChartSeries(tp, hp, lp);
 }
 
-// 只接收温湿度两个参数，删除light相关分支
-function updateChartSeries(t, h) {
+function updateChartSeries(tp, hp, lp) {
     if (!realChart) return;
-    t = t || [];
-    h = h || [];
-    if (chartMode === 'all') {
-        realChart.setOption({ series: [{ data: t }, { data: h }] });
-    } else if (chartMode === 'temp') {
-        realChart.setOption({ series: [{ data: t }, { data: [] }] });
-    } else if (chartMode === 'humi') {
-        realChart.setOption({ series: [{ data: [] }, { data: h }] });
+    tp = tp || { normal: [], anomaly: [] };
+    hp = hp || { normal: [], anomaly: [] };
+    lp = lp || { normal: [], anomaly: [] };
+
+    function showIf(mode, normal, anomaly) {
+        if (mode === 'all') return [normal, anomaly];
+        return [[], []];
     }
+
+    var st = showIf(chartMode === 'all' || chartMode === 'temp', tp.normal, tp.anomaly);
+    var sh = showIf(chartMode === 'all' || chartMode === 'humi', hp.normal, hp.anomaly);
+    var sl = showIf(chartMode === 'all' || chartMode === 'light', lp.normal, lp.anomaly);
+
+    realChart.setOption({
+        series: [
+            { data: st[0] }, { data: sh[0] }, { data: sl[0] },  // 折线
+            { data: st[1] }, { data: sh[1] }, { data: sl[1] }   // 异常散点
+        ]
+    });
 }
 
 function dashboardChartSwitch(m, event) {

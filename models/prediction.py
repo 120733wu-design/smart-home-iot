@@ -8,11 +8,14 @@ class PredictionModel:
         return execute(sql, (device_id, sensor_type, predicted_value, confidence, predicted_at), return_id=True)
     @staticmethod
     def batch_insert(predictions):
+        """批量插入预测数据，支持 5 列或 6 列 tuple
+           predictions: list of (device_id, sensor_type, predicted_value, confidence, predicted_at[, created_at])
+        """
         conn = None
         try:
             conn = get_db()
             cursor = conn.cursor()
-            sql = "INSERT INTO ml_predictions (device_id, sensor_type, predicted_value, confidence, predicted_at) VALUES (%s, %s, %s, %s, %s)"
+            sql = "INSERT INTO ml_predictions (device_id, sensor_type, predicted_value, confidence, predicted_at, created_at) VALUES (%s, %s, %s, %s, %s, %s)"
             if isinstance(conn, sqlite3.Connection):
                 sql = sql.replace("%s", "?")
             cursor.executemany(sql, predictions)

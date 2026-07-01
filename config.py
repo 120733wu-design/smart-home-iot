@@ -6,7 +6,7 @@ class Config:
     SESSION_FILE_DIR = os.path.join(os.path.dirname(__file__), '.sessions')
 
     # MySQL 宝塔云端数据库配置
-    MYSQL_HOST = os.environ.get('MYSQL_HOST', '127.0.0.1')
+    MYSQL_HOST = os.environ.get('MYSQL_HOST', '182.92.86.89')
     MYSQL_PORT = int(os.environ.get('MYSQL_PORT', 3306))
     # 修复环境变量参数错误
     MYSQL_USER = os.environ.get('MYSQL_USER', 'smart_home')
