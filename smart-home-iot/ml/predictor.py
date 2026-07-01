@@ -43,7 +43,11 @@ class Predictor:
             r2=self.metrics.get(key,{}).get('r2',0); conf=max(0,min(100,r2*100))
             preds.append({'device_id':device_id,'sensor_type':sensor_type,'predicted_value':round(float(pv),2),'confidence':round(float(conf),2),'predicted_at':ft})
             lv.append(float(pv))
-        batch=[(p['device_id'],p['sensor_type'],p['predicted_value'],p['confidence'],p['predicted_at']) for p in preds]
+        # 新增：计算东八区当前创建时间，替代数据库默认UTC时间
+        now_cst = datetime.utcnow() + timedelta(hours=8)
+        created_str = now_cst.strftime("%Y-%m-%d %H:%M:%S")
+        # batch 增加 created_at 字段作为第六个参数
+        batch=[(p['device_id'],p['sensor_type'],p['predicted_value'],p['confidence'],p['predicted_at'], created_str) for p in preds]
         if batch: PredictionModel.batch_insert(batch)
         return {'device_id':device_id,'sensor_type':sensor_type,'predictions':[{**p,'predicted_at':p['predicted_at'].strftime('%Y-%m-%d %H:%M:%S')} for p in preds],'metrics':self.metrics.get(key,{})}
     def predict_all_devices(self):
@@ -61,7 +65,7 @@ class Predictor:
                 self.train(device_id, st)
                 key = (device_id, st)
                 if key in self.metrics:
-                    results[st] = self.metrics[key]
+                    results[st] = m
         return results
 def get_predictor():
     global _predictor

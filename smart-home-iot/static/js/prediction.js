@@ -17,6 +17,11 @@ document.addEventListener('DOMContentLoaded', function () {
     setInterval(loadPredictionData, 60000);
 });
 
+// 统一时区修复：数据库时间字符串强制东八区CST
+function getCSTDate(rawStr) {
+    return new Date(rawStr + " +08:00");
+}
+
 // 加载设备下拉
 function loadDevSel(sid, cb) {
     apiGet('/api/devices').then(function (d) {
@@ -191,13 +196,13 @@ window.addEventListener('resize', function () {
     if (predictionChart) predictionChart.resize();
 });
 
-// ---------------------- 全局通用工具函数（补全，避免报错） ----------------------
-// 时间字符串转时间戳
+// ---------------------- 全局通用工具函数（修复时区） ----------------------
+// 时间字符串转时间戳（强制东八区）
 function parseTime(timeStr) {
-    return new Date(timeStr).getTime();
+    return getCSTDate(timeStr).getTime();
 }
 
-// 时间戳格式化
+// 时间戳格式化输出页面展示文本
 function formatTime(timestamp) {
     let d = new Date(timestamp);
     let y = d.getFullYear();

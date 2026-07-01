@@ -2,7 +2,7 @@
 async function apiGet(u) {
     try {
         const r = await fetch(u);
-        // 非2xx状态码统一返回失败对象
+        // 非2xx状态码统一返回失败对象，不解析JSON
         if (!r.ok) {
             return { success: false, msg: "服务器请求异常" };
         }
@@ -142,7 +142,8 @@ document.addEventListener('DOMContentLoaded', function () {
         setInterval(async function () {
             const res = await apiGet('/api/alerts/stats');
             if (res.success) {
-                const count = res.data.unread_count || 0;
+                // 后端返回字段 unread，不是 unread_count
+                const count = res.unread || 0;
                 alertBadge.textContent = count;
                 alertBadge.style.display = count > 0 ? 'inline-block' : 'none';
             }

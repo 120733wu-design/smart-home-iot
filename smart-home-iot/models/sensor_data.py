@@ -3,13 +3,22 @@ from datetime import datetime, timedelta
 
 class SensorDataModel:
     @staticmethod
-    def insert(device_id, sensor_type, value, unit=''):
-        sql = "INSERT INTO sensor_data (device_id, sensor_type, value, unit) VALUES (%s, %s, %s, %s)"
-        return execute(sql, (device_id, sensor_type, value, unit), return_id=True)
+    def insert(device_id, sensor_type, value, unit='', recorded_at=None):
+        # 过滤无效0/负数，不写入数据库
+        if float(value) <= 0:
+            return None
+        if recorded_at:
+            # 使用Python传入的标准北京时间
+            sql = "INSERT INTO sensor_data (device_id, sensor_type, value, unit, recorded_at) VALUES (%s, %s, %s, %s, %s)"
+            return execute(sql, (device_id, sensor_type, value, unit, recorded_at), return_id=True)
+        else:
+            # 无传入时间，沿用数据库默认NOW()
+            sql = "INSERT INTO sensor_data (device_id, sensor_type, value, unit) VALUES (%s, %s, %s, %s)"
+            return execute(sql, (device_id, sensor_type, value, unit), return_id=True)
 
     @staticmethod
     def get_history(device_id, start, end, page, per_page):
-        sql = "SELECT sensor_type, value, recorded_at FROM sensor_data WHERE device_id = %s"
+        sql = "SELECT sensor_type, value, recorded_at FROM sensor_data WHERE device_id = %s AND value > 0"
         params = [device_id]
         if start:
             sql += " AND recorded_at >= %s"
@@ -25,7 +34,7 @@ class SensorDataModel:
 
     @staticmethod
     def count(device_id, start, end):
-        sql = "SELECT COUNT(*) cnt FROM sensor_data WHERE device_id = %s"
+        sql = "SELECT COUNT(*) cnt FROM sensor_data WHERE device_id = %s AND value > 0"
         params = [device_id]
         if start:
             sql += " AND recorded_at >= %s"
@@ -38,14 +47,14 @@ class SensorDataModel:
 
     @staticmethod
     def get_realtime(device_id):
-        sql = "SELECT sensor_type, value, unit, recorded_at FROM sensor_data WHERE device_id = %s ORDER BY recorded_at DESC LIMIT 3"
+        sql = "SELECT sensor_type, value, unit, recorded_at FROM sensor_data WHERE device_id = %s AND value > 0 ORDER BY recorded_at DESC LIMIT 3"
         rows = query(sql, (device_id,)) or []
         return rows
 
     @staticmethod
     def get_latest_value(device_id, sensor_type, hours):
         cutoff = datetime.now() - timedelta(hours=hours)
-        sql = "SELECT value, recorded_at FROM sensor_data WHERE device_id = %s AND sensor_type = %s AND recorded_at >= %s ORDER BY recorded_at ASC"
+        sql = "SELECT value, recorded_at FROM sensor_data WHERE device_id = %s AND sensor_type = %s AND recorded_at >= %s AND value > 0 ORDER BY recorded_at ASC"
         rows = query(sql, (device_id, sensor_type, cutoff)) or []
         res = []
         for i, r in enumerate(rows):
@@ -65,30 +74,32 @@ class SensorDataModel:
             })
         return res
 
-    # 这个函数之前漏掉了，现在补上，解决第一个报错
     @staticmethod
     def get_latest_rows(device_id, hours):
         cutoff = datetime.now() - timedelta(hours=hours)
-        sql = "SELECT sensor_type, value, recorded_at FROM sensor_data WHERE device_id = %s AND recorded_at >= %s ORDER BY recorded_at ASC"
+        sql = "SELECT sensor_type, value, recorded_at FROM sensor_data WHERE device_id = %s AND recorded_at >= %s AND value > 0 ORDER BY recorded_at ASC"
         rows = query(sql, (device_id, cutoff)) or []
         temp_arr = []
         hum_arr = []
         light_arr = []
         for r in rows:
             fmt_time = r["recorded_at"].strftime("%Y-%m-%d %H:%M:%S")
+            val = float(r["value"])
+            if val <= 0:
+                continue
             if r["sensor_type"] == "temperature":
-                temp_arr.append({"recorded_at": fmt_time, "value": r["value"]})
+                temp_arr.append({"recorded_at": fmt_time, "value": val})
             elif r["sensor_type"] == "humidity":
-                hum_arr.append({"recorded_at": fmt_time, "value": r["value"]})
+                hum_arr.append({"recorded_at": fmt_time, "value": val})
             elif r["sensor_type"] == "light":
-                light_arr.append({"recorded_at": fmt_time, "value": r["value"]})
+                light_arr.append({"recorded_at": fmt_time, "value": val})
         return {
             "temperature": temp_arr,
             "humidity": hum_arr,
             "light": light_arr
         }
-# ML 训练用: 获取指定设备/传感器类型的历史数据
+
     @staticmethod
     def get_for_ml(device_id, sensor_type, limit=500):
-        sql = "SELECT value, recorded_at FROM sensor_data WHERE device_id = %s AND sensor_type = %s ORDER BY recorded_at DESC LIMIT %s"
+        sql = "SELECT value, recorded_at FROM sensor_data WHERE device_id = %s AND sensor_type = %s AND value > 0 ORDER BY recorded_at DESC LIMIT %s"
         return query(sql, (device_id, sensor_type, limit)) or []

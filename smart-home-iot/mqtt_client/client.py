@@ -1,4 +1,5 @@
 import json, time, threading, paho.mqtt.client as mqtt
+from datetime import datetime, timedelta
 from config import Config
 # 数据库查询函数导入，用于防重复告警
 from models.database import query
@@ -54,10 +55,12 @@ def on_message(client, userdata, msg):
                 print(f"[MQTT] 数值转换失败 payload={payload}, err={e}")
                 return
             from models.sensor_data import SensorDataModel
-            SensorDataModel.insert(did, sensor_type, value)
+            # 关键：sensor_data 也改用Python本地时间入库，和告警完全同源
+            now_cst = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            SensorDataModel.insert(did, sensor_type, value, now_cst)
             print(f"[MQTT] 入库成功 设备:{device_key} 传感器:{sensor_type} 值:{value}")
             if device['status'] != 'online':
-                DeviceModel.set_status(did, online=True)
+                DeviceModel.set_status(did, "online")
 
             # ===================== 新增阈值告警判断 =====================
             if sensor_type in ["temperature", "humidity"]:
@@ -81,13 +84,17 @@ def on_message(client, userdata, msg):
                     sev = "critical"
                 # 存在异常则生成告警，60秒内同一条消息不重复创建
                 if alert_msg:
+                    # 统一本地北京时间，无手动+8
+                    now_cst = datetime.now()
+                    cut_time = (now_cst - timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S")
                     recent = query(
-                        "SELECT id FROM alerts WHERE device_id=%s AND alert_type='threshold' AND message=%s AND created_at > DATE_SUB(NOW(), INTERVAL 60 SECOND) LIMIT 1",
-                        (did, alert_msg),
+                        "SELECT id FROM alerts WHERE device_id=%s AND alert_type='threshold' AND message=%s AND created_at > %s LIMIT 1",
+                        (did, alert_msg, cut_time),
                         fetchone=True
                     )
                     if not recent:
-                        AlertModel.create(did, "threshold", sev, alert_msg)
+                        now_str = now_cst.strftime("%Y-%m-%d %H:%M:%S")
+                        AlertModel.create(did, "threshold", sev, alert_msg, now_str)
                         print(f"[MQTT] 生成阈值告警：{alert_msg}")
             # ==========================================================
 
@@ -154,4 +161,13 @@ def publish_control(device_key, command, params=None):
     payload = json.dumps({'command':command,'params':params or {},'timestamp':time.time()})
     topic = f"{Config.MQTT_TOPIC_PREFIX}/{device_key}/control"
     result = _mqtt_client.publish(topic, qos=1)
+    return result.rc == 0
+# 新增：通用MQTT发布，任意主题
+def publish_raw(topic, payload):
+    global _mqtt_client
+    if _mqtt_client is None:
+        return False
+    if isinstance(payload, dict):
+        payload = json.dumps(payload)
+    result = _mqtt_client.publish(topic, payload, qos=1)
     return result.rc == 0

@@ -2,35 +2,57 @@ var realChart = null, predChart = null, chartMode = 'all';
 document.addEventListener('DOMContentLoaded', function () {
     loadStats();
     loadAlerts();
+    loadOutdoorWeather();
     initRealChart();
     initPredChart();
+    // 天气每10分钟刷新一次，匹配后端缓存
+    setInterval(loadOutdoorWeather, 600000);
 });
 
+// 统一时区修复：数据库时间字符串强制东八区
+function getCSTDate(rawStr) {
+    return new Date(rawStr + " +08:00");
+}
+
+// 室外天气加载函数（适配apiGet容错，404友好处理）
+async function loadOutdoorWeather() {
+    const res = await apiGet("/api/data/weather/outdoor?city=天津");
+    const tempDom = document.getElementById("out-temp");
+    const humDom = document.getElementById("out-humi");
+    const weatherDom = document.getElementById("out-weather-text");
+    if (!res.success) {
+        // 接口404/异常展示占位文字，不抛控制台错误
+        if(tempDom) tempDom.textContent = "--";
+        if(humDom) humDom.textContent = "--";
+        if(weatherDom) weatherDom.textContent = "天气服务暂不可用";
+        return;
+    }
+    if(tempDom) tempDom.textContent = res.out_temp + " ℃";
+    if(humDom) humDom.textContent = res.out_humi + " %";
+    if(weatherDom) weatherDom.textContent = res.weather_text;
+}
+
 async function loadStats() {
-    try {
-        var d = await apiGet('/api/statistics');
-        if (!d.success) return;
-        var s = d.data;
-        document.getElementById('stat-total-devices').textContent = s.total_devices;
-        document.getElementById('stat-online-devices').textContent = s.online_devices;
-        document.getElementById('stat-online-rate').textContent = s.online_rate + '%';
-        document.getElementById('stat-unread-alerts').textContent = s.unread_alerts;
-    } catch (e) {}
+    var d = await apiGet('/api/statistics');
+    if (!d.success) return;
+    var s = d.data;
+    document.getElementById('stat-total-devices').textContent = s.total_devices;
+    document.getElementById('stat-online-devices').textContent = s.online_devices;
+    document.getElementById('stat-online-rate').textContent = s.online_rate + '%';
+    document.getElementById('stat-unread-alerts').textContent = s.unread_alerts;
 }
 
 async function loadAlerts() {
-    try {
-        var d = await apiGet('/api/alerts?per_page=5');
-        var el = document.getElementById('recent-alerts-list');
-        if (!d.success || !d.data.length) {
-            el.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-check-circle text-success" style="font-size:2rem"></i><p class="mt-2 mb-0 small">暂无告警</p></div>';
-            return;
-        }
-        el.innerHTML = d.data.map(function (a) {
-            var cls = a.severity === 'critical' ? 'danger' : a.severity === 'warning' ? 'warning' : 'info';
-            return '<div class="alert alert-' + cls + ' py-2 px-3 mb-2" style="font-size:.82rem;border-radius:8px"><div class="d-flex justify-content-between align-items-center"><span>' + a.message + '</span><small class="text-muted ms-2 text-nowrap">' + formatTime(a.created_at) + '</small></div></div>';
-        }).join('');
-    } catch (e) {}
+    var d = await apiGet('/api/alerts?per_page=5');
+    var el = document.getElementById('recent-alerts-list');
+    if (!d.success || !d.data.length) {
+        el.innerHTML = '<div class="text-center text-muted py-5"><i class="bi bi-check-circle text-success" style="font-size:2rem"></i><p class="mt-2 mb-0 small">暂无告警</p></div>';
+        return;
+    }
+    el.innerHTML = d.data.map(function (a) {
+        var cls = a.severity === 'critical' ? 'danger' : a.severity === 'warning' ? 'warning' : 'info';
+        return '<div class="alert alert-' + cls + ' py-2 px-3 mb-2" style="font-size:.82rem;border-radius:8px"><div class="d-flex justify-content-between align-items-center"><span>' + a.message + '</span><small class="text-muted ms-2 text-nowrap">' + formatTime(a.created_at) + '</small></div></div>';
+    }).join('');
 }
 
 function initRealChart() {
@@ -41,6 +63,7 @@ function initRealChart() {
         legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
         grid: { left: '3%', right: '4%', bottom: '15%', top: '5%', containLabel: true },
         xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
+        // 恢复双Y轴 温度左、湿度右，移除光照轴
         yAxis: [
             {
                 type: 'value',
@@ -57,10 +80,10 @@ function initRealChart() {
                 splitLine: { show: false }
             }
         ],
+        // 仅保留温度、湿度两条曲线，删除光照series
         series: [
             { name: '温度', type: 'line', smooth: true, showSymbol: false, lineStyle: { color: '#ef4444', width: 2 }, data: [] },
-            { name: '湿度', type: 'line', smooth: true, showSymbol: false, yAxisIndex: 1, lineStyle: { color: '#3b82f6', width: 2 }, data: [] },
-            { name: '光照', type: 'line', smooth: true, showSymbol: false, lineStyle: { color: '#f59e0b', width: 2 }, data: [] }
+            { name: '湿度', type: 'line', smooth: true, showSymbol: false, yAxisIndex: 1, lineStyle: { color: '#3b82f6', width: 2 }, data: [] }
         ]
     });
     refreshChartData();
@@ -69,30 +92,29 @@ function initRealChart() {
 
 async function refreshChartData() {
     if (!realChart) return;
-    try {
-        var ds = await apiGet('/api/devices');
-        if (!ds.success || !ds.data.length) return;
-        var did = ds.data[0].id;
-        var d = await apiGet('/api/devices/' + did + '/data/all-recent?hours=2');
-        if (!d.success) return;
-        var td = (d.data.temperature || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-        var hd = (d.data.humidity || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-        var ld = (d.data.light || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-        updateChartSeries(td, hd, ld);
-    } catch (e) {}
+    var ds = await apiGet('/api/devices');
+    if (!ds.success || !ds.data.length) return;
+    var did = ds.data[0].id;
+    var d = await apiGet('/api/devices/' + did + '/data/all-recent?hours=2');
+    if (!d.success) return;
+    var td = (d.data.temperature || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
+    var hd = (d.data.humidity || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
+    // 移除光照ld变量，只传温湿度
+    updateChartSeries(td, hd);
 }
 
-function updateChartSeries(t, h, l) {
+// 只接收温湿度两个参数，删除light相关分支
+function updateChartSeries(t, h) {
     if (!realChart) return;
     t = t || [];
     h = h || [];
-    l = l || [];
-    if (chartMode === 'all')
-        realChart.setOption({ series: [{ data: t }, { data: h }, { data: l }] });
-    else if (chartMode === 'temp')
-        realChart.setOption({ series: [{ data: t }, { data: [] }, { data: [] }] });
-    else if (chartMode === 'humi')
-        realChart.setOption({ series: [{ data: [] }, { data: h }, { data: [] }] });
+    if (chartMode === 'all') {
+        realChart.setOption({ series: [{ data: t }, { data: h }] });
+    } else if (chartMode === 'temp') {
+        realChart.setOption({ series: [{ data: t }, { data: [] }] });
+    } else if (chartMode === 'humi') {
+        realChart.setOption({ series: [{ data: [] }, { data: h }] });
+    }
 }
 
 function dashboardChartSwitch(m, event) {
@@ -111,7 +133,6 @@ function initPredChart() {
         legend: { bottom: 0, icon: 'circle', itemWidth: 8, itemHeight: 8 },
         grid: { left: '3%', right: '4%', bottom: '15%', containLabel: true },
         xAxis: { type: 'time', axisLabel: { fontSize: 11 } },
-        // 核心修复：乱码�?替换为正常中文「数值」
         yAxis: {
             type: 'value',
             name: '数值',
@@ -132,13 +153,28 @@ function initPredChart() {
 
 async function refreshPredData() {
     if (!predChart) return;
-    try {
-        var t = await apiGet('/api/predictions/latest?type=temperature&predict_hours=6');
-        var h = await apiGet('/api/predictions/latest?type=humidity&predict_hours=6');
-        var th = (t.data.history || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-        var tp = (t.data.predictions || []).map(function (x) { return [parseTime(x.predicted_at), x.predicted_value]; });
-        var hh = (h.data.history || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
-        var hp = (h.data.predictions || []).map(function (x) { return [parseTime(x.predicted_at), x.predicted_value]; });
-        predChart.setOption({ series: [{ data: th }, { data: tp }, { data: hh }, { data: hp }] });
-    } catch (e) {}
+    var t = await apiGet('/api/predictions/latest?type=temperature&predict_hours=6');
+    var h = await apiGet('/api/predictions/latest?type=humidity&predict_hours=6');
+    if (!t.success || !h.success) return;
+    var th = (t.data.history || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
+    var tp = (t.data.predictions || []).map(function (x) { return [parseTime(x.predicted_at), x.predicted_value]; });
+    var hh = (h.data.history || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
+    var hp = (h.data.predictions || []).map(function (x) { return [parseTime(x.predicted_at), x.predicted_value]; });
+    predChart.setOption({ series: [{ data: th }, { data: tp }, { data: hh }, { data: hp }] });
+}
+
+// 修复：解析数据库时间字符串，强制东八区
+function parseTime(str) {
+    return getCSTDate(str).getTime();
+}
+
+// 修复：格式化时间展示
+function formatTime(rawStr) {
+    const d = getCSTDate(rawStr);
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    const h = String(d.getHours()).padStart(2, '0');
+    const min = String(d.getMinutes()).padStart(2, '0');
+    return `${y}-${m}-${day} ${h}:${min}`;
 }

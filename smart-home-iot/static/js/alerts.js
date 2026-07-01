@@ -42,6 +42,19 @@ function filterAndRender(){
     document.getElementById('alert-count-badge').textContent='共 '+f.length+' 条'
 }
 
+// 重写时间格式化函数，强制东八区，消除8小时时差
+function formatTime(rawStr) {
+    // 拼接时区标识，告诉JS这是东八区时间
+    const dt = new Date(rawStr + " +08:00");
+    const year = dt.getFullYear();
+    const month = String(dt.getMonth() + 1).padStart(2, '0');
+    const day = String(dt.getDate()).padStart(2, '0');
+    const hour = String(dt.getHours()).padStart(2, '0');
+    const minute = String(dt.getMinutes()).padStart(2, '0');
+    const second = String(dt.getSeconds()).padStart(2, '0');
+    return `${year}/${month}/${day} ${hour}:${minute}:${second}`;
+}
+
 function renderAlerts(alerts){
     var tb=document.getElementById('alerts-table-body');
     if(!alerts.length){

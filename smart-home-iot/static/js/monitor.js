@@ -1,4 +1,4 @@
-﻿var gaugeTemp, gaugeHumi, gaugeLight, monitorLineChart = null, monitorTimer = null, currentDeviceId = null, currentSensor = 'temperature';
+﻿var gaugeTemp, gaugeHumi, gaugeLight, gaugeOutTemp, gaugeOutHumi, monitorLineChart = null, monitorTimer = null, currentDeviceId = null, currentSensor = 'temperature';
 document.addEventListener('DOMContentLoaded', function () {
     loadDeviceSelect('monitor-device-select', function () {
         currentDeviceId = document.getElementById('monitor-device-select').value;
@@ -20,6 +20,11 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 });
 
+// 统一时区修复函数（全局复用，消除8小时时差）
+function getCSTDate(rawStr) {
+    return new Date(rawStr + " +08:00");
+}
+
 function loadDeviceSelect(sid, cb) {
     try {
         var d = apiGet('/api/devices');
@@ -40,6 +45,8 @@ function initAll() {
     initGauges();
     initMonitorChart();
     startMonitorRefresh();
+    // 首次加载室外天气
+    updateOutdoorWeather();
 }
 
 function initGauges() {
@@ -61,12 +68,19 @@ function initGauges() {
             }]
         };
     };
+    // 室内仪表
     gaugeTemp = initChart('gauge-temp');
     gaugeHumi = initChart('gauge-humi');
     gaugeLight = initChart('gauge-light');
+    // 室外仪表
+    gaugeOutTemp = initChart('gauge-out-temp');
+    gaugeOutHumi = initChart('gauge-out-humi');
+
     if (gaugeTemp) gaugeTemp.setOption(go('温度', 'C', -10, 50, '#dc3545'));
     if (gaugeHumi) gaugeHumi.setOption(go('湿度', '%', 0, 100, '#0d6efd'));
     if (gaugeLight) gaugeLight.setOption(go('光照', 'lux', 0, 1000, '#ffc107'));
+    if (gaugeOutTemp) gaugeOutTemp.setOption(go('室外温度', 'C', -10, 50, '#22c55e'));
+    if (gaugeOutHumi) gaugeOutHumi.setOption(go('室外湿度', '%', 0, 100, '#f97316'));
     updateGauges();
 }
 
@@ -87,6 +101,27 @@ async function updateGauges() {
             }
         })
     } catch (e) { }
+}
+
+// 新增：加载室外天气接口，更新室外仪表盘
+async function updateOutdoorWeather() {
+    try {
+        var res = await apiGet('/api/weather/outdoor?city=' + encodeURIComponent('天津'));
+        if (!res.success) {
+            document.getElementById('out-weather-desc').innerText = '获取天气失败：' + res.msg;
+            return;
+        }
+        // 更新室外仪表盘数值
+        if (gaugeOutTemp) gaugeOutTemp.setOption({ series: [{ data: [{ value: res.out_temp }] }] });
+        if (gaugeOutHumi) gaugeOutHumi.setOption({ series: [{ data: [{ value: res.out_humi }] }] });
+        // 更新文字信息
+        document.getElementById('out-temp-val').innerText = res.out_temp;
+        document.getElementById('out-humi-val').innerText = res.out_humi;
+        document.getElementById('out-weather-desc').innerText = res.weather_text;
+        document.getElementById('out-weather-time').innerText = res.update_time;
+    } catch (err) {
+        console.error('室外天气加载失败', err);
+    }
 }
 
 function initMonitorChart() {
@@ -159,16 +194,17 @@ function startMonitorRefresh() {
         if (a && a.checked) {
             updateGauges();
             updateLineChart();
+            updateOutdoorWeather(); // 自动刷新同步更新室外天气
         }
     }, 10000)
 }
 
-// 工具：时间字符串转时间戳
+// 工具：时间字符串转时间戳（修复时区）
 function parseTime(timeStr) {
-    return new Date(timeStr).getTime();
+    return getCSTDate(timeStr).getTime();
 }
 
-// 工具：时间格式化
+// 工具：时间格式化（修复时区）
 function formatTime(timestamp) {
     let d = new Date(timestamp);
     let y = d.getFullYear();
@@ -186,10 +222,12 @@ function initChart(domId) {
     return echarts.init(dom);
 }
 
-// 窗口自适应
+// 窗口自适应（新增室外图表resize）
 window.addEventListener('resize', function () {
     if (gaugeTemp) gaugeTemp.resize();
     if (gaugeHumi) gaugeHumi.resize();
     if (gaugeLight) gaugeLight.resize();
+    if (gaugeOutTemp) gaugeOutTemp.resize();
+    if (gaugeOutHumi) gaugeOutHumi.resize();
     if (monitorLineChart) monitorLineChart.resize();
 });
