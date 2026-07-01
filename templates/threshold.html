@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block page_title %}阈值配置{% endblock %}
+{% block content %}
+<div class="row mb-3">
+    <div class="col-md-8 offset-md-2">
+        <div class="card shadow-sm rounded-4">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-sliders me-2 text-primary"></i>设备温湿度阈值配置
+                </h6>
+            </div>
+            <div class="card-body">
+                <!-- 选择设备 -->
+                <div class="mb-4">
+                    <label class="form-label fw-bold">选择设备</label>
+                    <select class="form-select" id="sel-device">
+                        <option value="">-- 请选择设备 --</option>
+                    </select>
+                </div>
+
+                <!-- 温度阈值 -->
+                <div class="card border-primary mb-4">
+                    <div class="card-header text-primary">温度阈值(℃)</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">最低温度</label>
+                                <input type="number" step="0.1" class="form-control" id="temp-min" placeholder="如 10">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">最高温度</label>
+                                <input type="number" step="0.1" class="form-control" id="temp-max" placeholder="如 30">
+                            </div>
+                        </div>
+                        <button class="btn btn-primary mt-2" id="save-temp">保存温度阈值</button>
+                    </div>
+                </div>
+
+                <!-- 湿度阈值 -->
+                <div class="card border-info">
+                    <div class="card-header text-info">湿度阈值(%)</div>
+                    <div class="card-body">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">最低湿度</label>
+                                <input type="number" step="0.1" class="form-control" id="humi-min" placeholder="如 20">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">最高湿度</label>
+                                <input type="number" step="0.1" class="form-control" id="humi-max" placeholder="如 70">
+                            </div>
+                        </div>
+                        <button class="btn btn-info mt-2" id="save-humi">保存湿度阈值</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let deviceList = [];
+const selDevice = document.getElementById('sel-device');
+// 加载设备下拉
+async function loadDeviceList() {
+    const res = await apiGet('/api/devices');
+    if (!res.success) return;
+    deviceList = res.data;
+    selDevice.innerHTML = '<option value="">-- 请选择设备 --</option>';
+    deviceList.forEach(item => {
+        selDevice.innerHTML += `<option value="${item.id}">${item.name} (${item.location || '无位置'})</option>`;
+    })
+}
+
+// 切换设备自动加载已有阈值
+selDevice.addEventListener('change', async () => {
+    const did = selDevice.value;
+    if (!did) {
+        clearInput();
+        return;
+    }
+    // 加载温度阈值
+    const tempRes = await apiGet(`/api/threshold/${did}/temperature`);
+    if (tempRes.success && tempRes.data) {
+        document.getElementById('temp-min').value = tempRes.data.min_value ?? '';
+        document.getElementById('temp-max').value = tempRes.data.max_value ?? '';
+    }
+    // 加载湿度阈值
+    const humiRes = await apiGet(`/api/threshold/${did}/humidity`);
+    if (humiRes.success && humiRes.data) {
+        document.getElementById('humi-min').value = humiRes.data.min_value ?? '';
+        document.getElementById('humi-max').value = humiRes.data.max_value ?? '';
+    }
+})
+
+// 清空输入框
+function clearInput() {
+    document.getElementById('temp-min').value = '';
+    document.getElementById('temp-max').value = '';
+    document.getElementById('humi-min').value = '';
+    document.getElementById('humi-max').value = '';
+}
+
+// 保存温度阈值
+document.getElementById('save-temp').addEventListener('click', async () => {
+    const did = selDevice.value;
+    if (!did) return showToast('请先选择设备', 'danger');
+    const min = document.getElementById('temp-min').value || null;
+    const max = document.getElementById('temp-max').value || null;
+    const res = await apiPost('/api/threshold/save', {
+        device_id: did,
+        sensor_type: 'temperature',
+        min_value: min,
+        max_value: max
+    })
+    if (res.success) showToast('温度阈值保存成功', 'success');
+    else showToast('保存失败', 'danger');
+})
+
+// 保存湿度阈值
+document.getElementById('save-humi').addEventListener('click', async () => {
+    const did = selDevice.value;
+    if (!did) return showToast('请先选择设备', 'danger');
+    const min = document.getElementById('humi-min').value || null;
+    const max = document.getElementById('humi-max').value || null;
+    const res = await apiPost('/api/threshold/save', {
+        device_id: did,
+        sensor_type: 'humidity',
+        min_value: min,
+        max_value: max
+    })
+    if (res.success) showToast('湿度阈值保存成功', 'success');
+    else showToast('保存失败', 'danger');
+})
+
+document.addEventListener('DOMContentLoaded', loadDeviceList);
+</script>
+{% endblock %}

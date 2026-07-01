@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block page_title %}智能预测{% endblock %}
+{% block content %}
+<div class="row mb-3">
+    <!-- 左侧指标+运行预测 -->
+    <div class="col-md-4 mb-3">
+        <div class="card h-100 shadow-sm rounded-4">
+            <div class="card-body text-center">
+                <h6 class="text-muted mb-1">模型评估指标</h6>
+                <div id="metric-cards">
+                    <div class="row mt-3 g-2">
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded">
+                                <small class="text-muted d-block">RMSE</small>
+                                <strong id="metric-rmse">--</strong>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded">
+                                <small class="text-muted d-block">MAE</small>
+                                <strong id="metric-mae">--</strong>
+                            </div>
+                        </div>
+                        <div class="col-4">
+                            <div class="p-2 bg-light rounded">
+                                <small class="text-muted d-block">R²</small>
+                                <strong id="metric-r2">--</strong>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <hr class="my-3">
+                <button class="btn btn-primary w-100" id="btn-run-prediction">
+                    <i class="bi bi-lightning-charge me-1"></i>运行预测
+                </button>
+                <small class="text-muted d-block mt-2">系统每30分钟自动执行一次</small>
+            </div>
+        </div>
+    </div>
+
+    <!-- 右侧预测配置 -->
+    <div class="col-md-8 mb-3">
+        <div class="card shadow-sm rounded-4 h-100">
+            <div class="card-header">
+                <h6 class="mb-0">
+                    <i class="bi bi-cpu me-2 text-primary"></i>预测设置
+                </h6>
+            </div>
+            <div class="card-body">
+                <div class="row g-2">
+                    <div class="col-md-4">
+                        <label class="form-label small">设备</label>
+                        <select class="form-select form-select-sm" id="pred-device">
+                            <option value="">-- 选择设备 --</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">传感器类型</label>
+                        <select class="form-select form-select-sm" id="pred-type">
+                            <option value="temperature">温度预测</option>
+                            <option value="humidity">湿度预测</option>
+                        </select>
+                    </div>
+                    <div class="col-md-4">
+                        <label class="form-label small">预测时长</label>
+                        <select class="form-select form-select-sm" id="pred-hours">
+                            <option value="3">未来 3 小时</option>
+                            <option value="6" selected>未来 6 小时</option>
+                            <option value="12">未来 12 小时</option>
+                            <option value="24">未来 24 小时</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 预测曲线图表 -->
+<div class="card shadow-sm rounded-4 mb-3">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="bi bi-graph-up-arrow me-2 text-success"></i>预测曲线
+        </h6>
+    </div>
+    <div class="card-body">
+        <div id="prediction-chart" class="chart-container-lg" style="height:320px;"></div>
+    </div>
+</div>
+
+<!-- 预测明细表格 -->
+<div class="card shadow-sm rounded-4">
+    <div class="card-header">
+        <h6 class="mb-0">
+            <i class="bi bi-table me-2 text-info"></i>预测数据详情
+        </h6>
+    </div>
+    <div class="card-body">
+        <div class="table-responsive" style="max-height:420px;overflow-y:auto;">
+            <table class="table table-sm table-hover mb-0">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th>时间</th>
+                        <th>预测值</th>
+                        <th>置信度</th>
+                        <th>生成时间</th>
+                    </tr>
+                </thead>
+                <tbody id="prediction-table-body">
+                    <tr>
+                        <td colspan="4" class="text-center text-muted py-3">暂无预测数据</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/prediction.js') }}"></script>
+{% endblock %}
