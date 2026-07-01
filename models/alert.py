@@ -24,7 +24,7 @@ class AlertModel:
         if device_id:
             sql += " AND a.device_id = %s"
             params.append(device_id)
-        sql += " ORDER BY a.created_at DESC LIMIT %s OFFSET %s"
+        sql += " ORDER BY a.id DESC LIMIT %s OFFSET %s"
         params.extend([per_page, (page - 1) * per_page])
         data_rows = query(sql, tuple(params))
 

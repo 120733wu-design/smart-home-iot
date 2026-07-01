@@ -61,7 +61,7 @@ function renderAlerts(alerts){
         tb.innerHTML='<tr><td colspan="7" class="text-center text-muted py-4">暂无告警</td></tr>';
         return
     }
-    tb.innerHTML=alerts.map(function(a){
+    tb.innerHTML=alerts.map(function(a, idx){
         var sl={
             critical:'<span class="badge badge-severity critical">严重</span>',
             warning:'<span class="badge badge-severity warning">警告</span>',
@@ -72,7 +72,9 @@ function renderAlerts(alerts){
             disconnection:'设备断连',
             anomaly:'数据异常'
         };
-        return'<tr class="'+(a.is_read?'':'fw-bold')+'"><td>'+a.id+'</td><td>'+(sl[a.severity]||a.severity)+'</td><td>'+(escapeHtml(a.device_name)||'--')+'</td><td>'+(tl[a.alert_type]||a.alert_type)+'</td><td>'+escapeHtml(a.message)+'</td><td>'+formatTime(a.created_at)+'</td><td>'+(a.is_read?'<span class="text-muted small">已读</span>':'<button class="btn btn-sm btn-outline-success" onclick="markRead('+a.id+')">标记已读</button>')+'<button class="btn btn-sm btn-outline-danger ms-1" title="删除告警" aria-label="删除告警" onclick="deleteAlert('+a.id+')"><i class="bi bi-trash"></i></button></td></tr>'
+        // 最新告警序号最大（从总数递减）
+        var rowNum = alerts.length - idx;
+        return'<tr class="'+(a.is_read?'':'fw-bold')+'"><td>'+rowNum+'</td><td>'+(sl[a.severity]||a.severity)+'</td><td>'+(escapeHtml(a.device_name)||'--')+'</td><td>'+(tl[a.alert_type]||a.alert_type)+'</td><td>'+escapeHtml(a.message)+'</td><td>'+formatTime(a.created_at)+'</td><td>'+(a.is_read?'<span class="text-muted small">已读</span>':'<button class="btn btn-sm btn-outline-success" onclick="markRead('+a.id+')">标记已读</button>')+'<button class="btn btn-sm btn-outline-danger ms-1" title="删除告警" aria-label="删除告警" onclick="deleteAlert('+a.id+')"><i class="bi bi-trash"></i></button></td></tr>'
     }).join('')
 }
 

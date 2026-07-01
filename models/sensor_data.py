@@ -8,46 +8,23 @@ _SENSOR_RANGES = {
     'light':       (0.0, 100000.0), # 光照：0 ~ 100000 lux（直射阳光下约10万lux）
 }
 
-# 滑动窗口：最近 N 个值用于突刺检测
-_SPIKE_WINDOW = {}
-_SPIKE_WINDOW_SIZE = 10            # 保留最近10个采样
-_SPIKE_THRESHOLD = 3.0             # Z-score 阈值，超过3倍标准差视为突刺
-
 def _validate_sensor_value(device_id, sensor_type, value):
-    """校验传感器值是否合法。返回 (is_valid, reason)"""
+    """校验传感器值是否合法。仅做物理范围检查，不使用 Z-score 避免正常波动误判。"""
     v = float(value)
 
-    # 1. 物理范围检查
     rng = _SENSOR_RANGES.get(sensor_type)
     if rng:
         lo, hi = rng
         if v < lo or v > hi:
             return False, f"超出物理范围 [{lo}, {hi}]"
 
-    # 2. 单点突刺检测（基于滑动窗口 Z-score）
-    key = f"{device_id}_{sensor_type}"
-    win = _SPIKE_WINDOW.get(key, [])
-    if len(win) >= 3:  # 至少3个历史值才做检测
-        import statistics
-        mean = statistics.mean(win)
-        std = statistics.stdev(win) if len(win) >= 2 else 1.0
-        if std > 0.01:
-            z = abs(v - mean) / std
-            if z > _SPIKE_THRESHOLD:
-                return False, f"突刺异常 z-score={z:.1f} (均值={mean:.1f} σ={std:.1f})"
-
-    # 记录到滑动窗口
-    win.append(v)
-    if len(win) > _SPIKE_WINDOW_SIZE:
-        win.pop(0)
-    _SPIKE_WINDOW[key] = win
     return True, "OK"
 
 
 class SensorDataModel:
     @staticmethod
     def insert(device_id, sensor_type, value, unit='', recorded_at=None):
-        # 严格数据校验：不合法的数据直接拒绝入库
+        # 校验：不合法的数据直接拒绝入库
         is_valid, reason = _validate_sensor_value(device_id, sensor_type, value)
         if not is_valid:
             print(f"[DATA-REJECT] device={device_id} type={sensor_type} value={value} -> {reason}")
