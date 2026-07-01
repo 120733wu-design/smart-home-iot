@@ -39,6 +39,9 @@
             <a href="/prediction" class="list-group-item list-group-item-action {{'active' if request.path=='/prediction' else ''}}">
                 <i class="bi bi-cpu me-2"></i>智能预测
             </a>
+            <a href="/yolo" class="list-group-item list-group-item-action {{'active' if request.path.startswith('/yolo') else ''}}">
+                <i class="bi bi-eye me-2"></i>YOLO检测
+            </a>
         </div>
     </div>
 
@@ -58,6 +61,11 @@
                             <i class="bi bi-person-circle me-1"></i>{{ session.username }}
                         </button>
                         <ul class="dropdown-menu dropdown-menu-end">
+                            <li>
+                                <button class="dropdown-item" id="btn-face-register">
+                                    <i class="bi bi-camera-video me-2"></i>人脸录入/重录
+                                </button>
+                            </li>
                             <li>
                                 <button class="dropdown-item" id="btn-logout">
                                     <i class="bi bi-box-arrow-right me-2"></i>退出登录

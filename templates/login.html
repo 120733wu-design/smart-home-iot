@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block auth_content %}
-<div class="row justify-content-center mt-5">
+<div class="row justify-content-center mt-4">
     <div class="col-md-5 col-lg-4">
         <div class="card shadow-lg border-0 rounded-4">
             <div class="card-body p-4 p-lg-5">
@@ -10,110 +10,215 @@
                     <p class="text-muted small">登录您的管理账户</p>
                 </div>
 
+                <!-- Tab 切换 -->
+                <div class="tab-group mb-4">
+                    <button class="tab-btn active" data-tab="password">账号登录</button>
+                    <button class="tab-btn" data-tab="face">人脸登录</button>
+                </div>
+
+                <!-- 通用提示 -->
                 <div id="login-error" class="alert alert-danger d-none small"></div>
+                <div id="login-success" class="alert alert-success d-none small"></div>
 
-                <form id="login-form">
-                    <div class="mb-3">
-                        <label class="form-label small">用户名</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="bi bi-person"></i>
-                            </span>
-                            <input type="text" class="form-control form-control-sm" id="login-username" placeholder="请输入用户名" required>
+                <!-- ===== 账号密码登录 ===== -->
+                <div id="tab-password" class="tab-content">
+                    <form id="login-form">
+                        <div class="mb-3">
+                            <label class="form-label small">用户名</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-person"></i></span>
+                                <input type="text" class="form-control form-control-sm" id="login-username" placeholder="请输入用户名" required>
+                            </div>
+                        </div>
+                        <div class="mb-4">
+                            <label class="form-label small">密码</label>
+                            <div class="input-group">
+                                <span class="input-group-text"><i class="bi bi-lock"></i></span>
+                                <input type="password" class="form-control form-control-sm" id="login-password" placeholder="请输入密码" required>
+                                <button class="btn btn-outline-secondary btn-sm" type="button" id="toggle-pwd">
+                                    <i class="bi bi-eye"></i>
+                                </button>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100 py-2" id="login-submit">登 录</button>
+                    </form>
+                </div>
+
+                <!-- ===== 人脸登录 ===== -->
+                <div id="tab-face" class="tab-content" style="display:none;">
+                    <div class="text-center mb-3">
+                        <div id="face-video-wrapper" style="position:relative;border-radius:12px;overflow:hidden;background:#000;width:100%;max-height:260px;">
+                            <video id="face-video" autoplay playsinline muted style="width:100%;display:block;"></video>
+                            <canvas id="face-canvas" style="display:none;"></canvas>
+                            <div id="face-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(0,0,0,.7);">
+                                <div class="text-center">
+                                    <i class="bi bi-camera-video-off" style="font-size:2.5rem;"></i>
+                                    <p class="mt-2 mb-0 small">点击下方按钮开启摄像头</p>
+                                </div>
+                            </div>
                         </div>
                     </div>
-
-                    <div class="mb-4">
-                        <label class="form-label small">密码</label>
-                        <div class="input-group">
-                            <span class="input-group-text">
-                                <i class="bi bi-lock"></i>
-                            </span>
-                            <input type="password" class="form-control form-control-sm" id="login-password" placeholder="请输入密码" required>
-                            <button class="btn btn-outline-secondary btn-sm" type="button" id="toggle-pwd">
-                                <i class="bi bi-eye"></i>
-                            </button>
-                        </div>
+                    <div id="https-warning" class="alert alert-warning small d-none mb-3">
+                        <i class="bi bi-exclamation-triangle me-1"></i>
+                        摄像头需要 HTTPS 或 localhost 环境，请使用 <code>http://127.0.0.1:5000</code>
                     </div>
+                    <div class="d-grid gap-2">
+                        <button class="btn btn-outline-primary btn-sm" id="face-camera-start">
+                            <i class="bi bi-camera-video me-1"></i>开启摄像头
+                        </button>
+                        <button class="btn btn-primary btn-sm" id="face-login-btn" disabled style="display:none;">
+                            <i class="bi bi-person-check me-1"></i>人脸识别登录
+                        </button>
+                        <button class="btn btn-outline-secondary btn-sm" id="face-camera-stop" style="display:none;">
+                            <i class="bi bi-stop-circle me-1"></i>关闭摄像头
+                        </button>
+                    </div>
+                    <p class="text-muted small mt-2 mb-0 text-center">请先在右上角菜单"人脸录入/重录"中录入人脸</p>
+                </div>
 
-                    <button type="submit" class="btn btn-primary w-100 py-2" id="login-submit">
-                        登 录
-                    </button>
-                </form>
-
+                <!-- 底部注册入口 -->
                 <div class="text-center mt-4">
-                    <small class="text-muted">还没有账户？
-                        <a href="/register" class="text-primary text-decoration-none fw-medium">立即注册</a>
+                    <small class="text-muted">
+                        <span id="footer-text-default">还没有账户？<a href="/register" class="text-primary text-decoration-none fw-medium">立即注册</a></span>
+                        <span id="footer-text-face" style="display:none;">还没有账户？<a href="/register" class="text-primary text-decoration-none fw-medium">立即注册</a></span>
                     </small>
                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<style>
+.tab-group { display: flex; background: #f1f5f9; border-radius: 10px; padding: 3px; gap: 2px; }
+.tab-btn { flex: 1; padding: 10px 0; border: none; background: transparent; color: #64748b; font-size: 0.85rem; font-weight: 600; cursor: pointer; border-radius: 8px; transition: all .25s; }
+.tab-btn.active { background: #fff; color: #3b82f6; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+.tab-btn:hover:not(.active) { color: #334155; }
+.tab-content { animation: fadeIn .3s ease-out; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+</style>
 {% endblock %}
 
 {% block scripts %}
 <script>
-// 密码显示切换
-const pwdInput = document.getElementById('login-password');
-const toggleBtn = document.getElementById('toggle-pwd');
-toggleBtn.addEventListener('click', function () {
-    const icon = this.querySelector('i');
-    if (pwdInput.type === 'password') {
-        pwdInput.type = 'text';
-        icon.className = 'bi bi-eye-slash';
-    } else {
-        pwdInput.type = 'password';
-        icon.className = 'bi bi-eye';
+var currentTab = 'password';
+var faceStream = null;
+var faceCameraOn = false;
+
+// ── Tab 切换 ──
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+        document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+        this.classList.add('active');
+        currentTab = this.dataset.tab;
+        document.getElementById('tab-password').style.display = currentTab === 'password' ? '' : 'none';
+        document.getElementById('tab-face').style.display = currentTab === 'face' ? '' : 'none';
+        document.getElementById('footer-text-default').style.display = currentTab === 'password' ? '' : 'none';
+        document.getElementById('footer-text-face').style.display = currentTab === 'face' ? '' : 'none';
+        if (currentTab === 'password') stopCamera();
+        hideMessages();
+    });
+});
+
+// ── 密码显示切换 ──
+var pwdInput = document.getElementById('login-password');
+document.getElementById('toggle-pwd').addEventListener('click', function() {
+    var icon = this.querySelector('i');
+    if (pwdInput.type === 'password') { pwdInput.type = 'text'; icon.className = 'bi bi-eye-slash'; }
+    else { pwdInput.type = 'password'; icon.className = 'bi bi-eye'; }
+});
+
+// ── 提示框 ──
+function showError(msg) { document.getElementById('login-error').textContent = msg; document.getElementById('login-error').classList.remove('d-none'); document.getElementById('login-success').classList.add('d-none'); }
+function showSuccess(msg) { document.getElementById('login-success').textContent = msg; document.getElementById('login-success').classList.remove('d-none'); document.getElementById('login-error').classList.add('d-none'); }
+function hideMessages() { document.getElementById('login-error').classList.add('d-none'); document.getElementById('login-success').classList.add('d-none'); }
+
+// ── 账号密码登录 ──
+document.getElementById('login-form').addEventListener('submit', async function(e) {
+    e.preventDefault();
+    hideMessages();
+    var submitBtn = document.getElementById('login-submit');
+    var username = document.getElementById('login-username').value.trim();
+    var password = document.getElementById('login-password').value.trim();
+    if (!username || !password) { showError('用户名和密码不能为空'); return; }
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>登录中...';
+    try {
+        var res = await fetch('/api/auth/login', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({username: username, password: password})
+        });
+        var data = await res.json();
+        if (data.success) { window.location.href = '/dashboard'; }
+        else { showError(data.message || '用户名或密码错误'); }
+    } catch (err) { showError('网络连接失败: ' + err.message); }
+    finally { submitBtn.disabled = false; submitBtn.innerHTML = '登 录'; }
+});
+
+// ── 摄像头启动 ──
+document.getElementById('face-camera-start').addEventListener('click', async function() {
+    hideMessages();
+    if (window.location.protocol === 'http:' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+        document.getElementById('https-warning').classList.remove('d-none');
+        showError('摄像头需要 HTTPS 或 localhost 环境，请使用 http://127.0.0.1:5000');
+        return;
+    }
+    try {
+        faceStream = await navigator.mediaDevices.getUserMedia({ video: { width: { ideal: 480 }, height: { ideal: 480 }, facingMode: 'user' } });
+        var video = document.getElementById('face-video');
+        video.srcObject = faceStream;
+        await video.play();
+        document.getElementById('face-placeholder').style.display = 'none';
+        document.getElementById('face-login-btn').style.display = '';
+        document.getElementById('face-login-btn').disabled = false;
+        document.getElementById('face-camera-start').style.display = 'none';
+        document.getElementById('face-camera-stop').style.display = '';
+        document.getElementById('https-warning').classList.add('d-none');
+        faceCameraOn = true;
+    } catch (err) {
+        if (err.name === 'NotAllowedError') showError('摄像头权限被拒绝，请在浏览器设置中允许');
+        else if (err.name === 'NotFoundError') showError('未检测到摄像头设备');
+        else showError('摄像头启动失败: ' + err.message);
     }
 });
 
-// 登录表单提交
-document.getElementById('login-form').addEventListener('submit', async function (e) {
-    e.preventDefault();
-    const errorDom = document.getElementById('login-error');
-    const submitBtn = document.getElementById('login-submit');
-    // 清空错误
-    errorDom.classList.add('d-none');
-    
-    // 去除首尾空格
-    const username = document.getElementById('login-username').value.trim();
-    const password = document.getElementById('login-password').value.trim();
-    
-    // 简易前端校验
-    if (!username || !password) {
-        errorDom.textContent = '用户名和密码不能为空';
-        errorDom.classList.remove('d-none');
-        return;
-    }
+// ── 摄像头关闭 ──
+function stopCamera() {
+    if (faceStream) { faceStream.getTracks().forEach(function(t) { t.stop(); }); faceStream = null; }
+    faceCameraOn = false;
+    document.getElementById('face-video').srcObject = null;
+    document.getElementById('face-placeholder').style.display = '';
+    document.getElementById('face-login-btn').style.display = 'none';
+    document.getElementById('face-camera-start').style.display = '';
+    document.getElementById('face-camera-stop').style.display = 'none';
+}
+document.getElementById('face-camera-stop').addEventListener('click', stopCamera);
 
-    // 按钮加载状态，防止重复点击
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>登录中...';
-
+// ── 人脸识别登录 ──
+document.getElementById('face-login-btn').addEventListener('click', async function() {
+    if (!faceCameraOn) { showError('请先开启摄像头'); return; }
+    hideMessages();
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>识别中...';
     try {
-        const res = await fetch('/login', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ username, password })
+        var video = document.getElementById('face-video');
+        var canvas = document.getElementById('face-canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        var base64 = canvas.toDataURL('image/jpeg', 0.85);
+
+        var res = await fetch('/api/auth/face-login', {
+            method: 'POST', headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({frame: base64})
         });
-        const data = await res.json();
+        var data = await res.json();
         if (data.success) {
-            window.location.href = '/dashboard';
-        } else {
-            errorDom.textContent = data.message || '账号或密码错误';
-            errorDom.classList.remove('d-none');
-        }
-    } catch (err) {
-        errorDom.textContent = '网络连接失败，请检查服务器';
-        errorDom.classList.remove('d-none');
-    } finally {
-        // 恢复按钮
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '登 录';
-    }
+            showSuccess('人脸登录成功，即将跳转...');
+            setTimeout(function() { window.location.href = '/dashboard'; }, 800);
+        } else { showError(data.message || '人脸识别失败'); }
+    } catch (err) { showError('网络连接失败: ' + err.message); }
+    finally { btn.disabled = false; btn.innerHTML = '<i class="bi bi-person-check me-1"></i>人脸识别登录'; }
 });
 </script>
 {% endblock %}

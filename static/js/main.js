@@ -184,8 +184,16 @@ document.addEventListener('DOMContentLoaded', function () {
     const logoutBtn = document.getElementById('btn-logout');
     if (logoutBtn) {
         logoutBtn.addEventListener('click', async function () {
-            await apiPost('/logout');
+            await apiPost('/api/auth/logout');
             window.location.href = '/login';
+        });
+    }
+
+    // 人脸录入/重录按钮（右上角下拉菜单）
+    const faceRegBtn = document.getElementById('btn-face-register');
+    if (faceRegBtn) {
+        faceRegBtn.addEventListener('click', function () {
+            window.location.href = '/face-setup';
         });
     }
 

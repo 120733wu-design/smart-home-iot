@@ -17,15 +17,18 @@ def create_app(config_class=Config):
     from routes.predictions_api import predictions_api_bp
     # 新增：导入阈值配置蓝图
     from routes.threshold_api import threshold_bp
+    # 新增：导入YOLOv5检测蓝图
+    from routes.yolo_api import yolo_bp
 
     # 注册蓝图：auth、页面类无/api前缀；接口统一/api
     app.register_blueprint(pages_bp)
-    app.register_blueprint(auth_bp)
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
     app.register_blueprint(threshold_bp)  # 阈值页面属于页面路由，不加/api
     app.register_blueprint(devices_api_bp, url_prefix='/api')
     app.register_blueprint(data_api_bp, url_prefix='/api')
     app.register_blueprint(alerts_api_bp, url_prefix='/api')
     app.register_blueprint(predictions_api_bp, url_prefix='/api')
+    app.register_blueprint(yolo_bp, url_prefix='/yolo')
 
     # 避免 favicon.ico 404
     @app.route('/favicon.ico')

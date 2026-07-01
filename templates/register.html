@@ -123,7 +123,7 @@ document.getElementById('register-form').addEventListener('submit', async functi
     submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>注册中...';
 
     try {
-        const res = await fetch('/register', {
+        const res = await fetch('/api/auth/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -132,7 +132,9 @@ document.getElementById('register-form').addEventListener('submit', async functi
         });
         const data = await res.json();
         if (data.success) {
-            window.location.href = '/dashboard';
+            const doFace = confirm('注册成功！是否立即录入人脸以便后续使用人脸登录？\n（可稍后在右上角菜单"人脸录入"中补录）');
+            if (doFace) { window.location.href = '/face-setup'; }
+            else { window.location.href = '/dashboard'; }
         } else {
             errorBox.textContent = data.message || '注册失败';
             errorBox.classList.remove('d-none');

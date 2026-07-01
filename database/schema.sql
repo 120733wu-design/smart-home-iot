@@ -6,6 +6,8 @@ CREATE TABLE IF NOT EXISTS users (
     username VARCHAR(50) NOT NULL UNIQUE,
     password_hash VARCHAR(255) NOT NULL,
     role ENUM('admin','user') DEFAULT 'user',
+    face_feature TEXT NULL COMMENT '单账号仅存储一组人脸特征，重复录入自动覆盖',
+    face_enabled TINYINT(1) DEFAULT 0,
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

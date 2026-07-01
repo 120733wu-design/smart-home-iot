@@ -47,3 +47,8 @@ def alerts():
 def prediction():
     if not _auth(): return redirect(url_for('pages.login_page'))
     return render_template('prediction.html')
+
+@pages_bp.route('/face-setup')
+def face_setup():
+    if not _auth(): return redirect(url_for('pages.login_page'))
+    return render_template('face_setup.html')

@@ -1,0 +1,176 @@
+{% extends "base.html" %}
+{% block page_title %}人脸录入{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-5">
+        <div class="card shadow-sm border-0 rounded-4">
+            <div class="card-body p-4">
+                <div class="text-center mb-3">
+                    <i class="bi bi-camera-video text-primary" style="font-size:2.5rem;"></i>
+                    <h5 class="mt-2 mb-1">人脸录入</h5>
+                    <p class="text-muted small mb-0" id="face-status-hint">请正对摄像头，保持光线充足</p>
+                </div>
+
+                <div id="setup-error" class="alert alert-danger d-none small"></div>
+                <div id="setup-success" class="alert alert-success d-none small"></div>
+
+                <!-- 摄像头区域 -->
+                <div class="text-center mb-3">
+                    <div id="video-wrapper" style="position:relative;border-radius:12px;overflow:hidden;background:#000;width:100%;max-height:320px;">
+                        <video id="face-video" autoplay playsinline muted style="width:100%;display:block;"></video>
+                        <canvas id="face-canvas" style="display:none;"></canvas>
+                        <div id="video-placeholder" style="position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#fff;background:rgba(0,0,0,.75);">
+                            <div class="text-center">
+                                <i class="bi bi-camera-video-off" style="font-size:2.5rem;"></i>
+                                <p class="mt-2 mb-0 small">点击下方按钮开启摄像头</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- HTTP 环境提示 -->
+                <div id="https-warning" class="alert alert-warning small d-none mb-3">
+                    <i class="bi bi-exclamation-triangle me-1"></i>
+                    当前页面通过 <strong id="proto-label">HTTP</strong> 访问，摄像头需要 HTTPS 或 localhost。请使用 <code>http://127.0.0.1:5000</code>
+                </div>
+
+                <div class="d-grid gap-2">
+                    <button class="btn btn-outline-primary" id="btn-camera-start">
+                        <i class="bi bi-camera-video me-1"></i>开启摄像头
+                    </button>
+                    <button class="btn btn-primary" id="btn-capture" disabled style="display:none;">
+                        <i class="bi bi-camera me-1"></i>拍照并保存人脸特征
+                    </button>
+                    <button class="btn btn-outline-secondary" id="btn-camera-stop" style="display:none;">
+                        <i class="bi bi-stop-circle me-1"></i>关闭摄像头
+                    </button>
+                </div>
+
+                <p class="text-muted small mt-3 mb-0 text-center">
+                    <i class="bi bi-info-circle me-1"></i>一个账号仅存储一组人脸特征，重复录入自动覆盖
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+var faceStream = null;
+var faceCameraOn = false;
+
+function showError(msg) {
+    var el = document.getElementById('setup-error');
+    el.textContent = msg; el.classList.remove('d-none');
+    document.getElementById('setup-success').classList.add('d-none');
+}
+function showSuccess(msg) {
+    var el = document.getElementById('setup-success');
+    el.textContent = msg; el.classList.remove('d-none');
+    document.getElementById('setup-error').classList.add('d-none');
+}
+function hideMessages() {
+    document.getElementById('setup-error').classList.add('d-none');
+    document.getElementById('setup-success').classList.add('d-none');
+}
+
+// ── 开启摄像头 ──
+document.getElementById('btn-camera-start').addEventListener('click', async function() {
+    hideMessages();
+    var proto = window.location.protocol;
+    if (proto === 'http:' && window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost') {
+        document.getElementById('https-warning').classList.remove('d-none');
+        document.getElementById('proto-label').textContent = 'HTTP';
+        showError('摄像头功能需要 HTTPS 或 localhost 环境，请使用 http://127.0.0.1:5000 访问');
+        return;
+    }
+    try {
+        faceStream = await navigator.mediaDevices.getUserMedia({
+            video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'user' }
+        });
+        var video = document.getElementById('face-video');
+        video.srcObject = faceStream;
+        await video.play();
+        document.getElementById('video-placeholder').style.display = 'none';
+        document.getElementById('btn-capture').style.display = '';
+        document.getElementById('btn-capture').disabled = false;
+        document.getElementById('btn-camera-start').style.display = 'none';
+        document.getElementById('btn-camera-stop').style.display = '';
+        document.getElementById('https-warning').classList.add('d-none');
+        faceCameraOn = true;
+    } catch (err) {
+        console.error('Camera:', err.name);
+        if (err.name === 'NotAllowedError')
+            showError('摄像头权限被拒绝，请在浏览器设置中允许访问');
+        else if (err.name === 'NotFoundError')
+            showError('未检测到摄像头设备');
+        else
+            showError('摄像头启动失败: ' + err.message);
+    }
+});
+
+// ── 关闭摄像头 ──
+document.getElementById('btn-camera-stop').addEventListener('click', function() {
+    if (faceStream) { faceStream.getTracks().forEach(function(t) { t.stop(); }); faceStream = null; }
+    faceCameraOn = false;
+    document.getElementById('face-video').srcObject = null;
+    document.getElementById('video-placeholder').style.display = '';
+    document.getElementById('btn-capture').style.display = 'none';
+    document.getElementById('btn-camera-start').style.display = '';
+    document.getElementById('btn-camera-stop').style.display = 'none';
+    hideMessages();
+});
+
+// ── 拍照并保存人脸 ──
+document.getElementById('btn-capture').addEventListener('click', async function() {
+    if (!faceCameraOn) { showError('请先开启摄像头'); return; }
+    hideMessages();
+    var btn = this;
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>检测并保存中...';
+
+    try {
+        var video = document.getElementById('face-video');
+        var canvas = document.getElementById('face-canvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        var ctx = canvas.getContext('2d');
+        ctx.drawImage(video, 0, 0);
+        var base64 = canvas.toDataURL('image/jpeg', 0.85);
+
+        var res = await fetch('/api/auth/face-save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ frame: base64 })
+        });
+
+        // 检查 HTTP 状态 — 401 表示未登录
+        if (!res.ok) {
+            var errData = null;
+            try { errData = await res.json(); } catch(e) {}
+            if (res.status === 401) {
+                showError(errData?.message || '请先使用密码登录后再录入人脸');
+            } else {
+                showError(errData?.message || '服务器错误 (' + res.status + ')');
+            }
+            return;
+        }
+
+        var data = await res.json();
+        if (data.success) {
+            showSuccess(data.message || '人脸特征保存成功！');
+            document.getElementById('face-status-hint').textContent = '人脸已录入 — 注销后可使用人脸登录';
+        } else {
+            showError(data.message || '保存失败');
+        }
+    } catch (err) {
+        showError('网络请求异常: ' + err.message);
+    } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-camera me-1"></i>拍照并保存人脸特征';
+    }
+});
+</script>
+{% endblock %}

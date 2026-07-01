@@ -50,6 +50,9 @@ def migrate_db(config=None):
             ("DROP TABLE IF EXISTS device", True),
             ("ALTER TABLE sensor_data ADD CONSTRAINT sensor_data_ibfk_devices "
              "FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE", True),
+            # 人脸登录：users 表增加人脸特征列
+            "ALTER TABLE users ADD COLUMN face_feature TEXT NULL COMMENT '单账号仅存储一组人脸特征'",
+            "ALTER TABLE users ADD COLUMN face_enabled TINYINT(1) DEFAULT 0",
         ]
         for stmt in migrations:
             try:

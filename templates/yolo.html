@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YOLOv5 实时检测</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --border: #334155;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --accent: #3b82f6;
+      --accent-hover: #2563eb;
+      --danger: #ef4444;
+      --success: #22c55e;
+      --warning: #f59e0b;
+      --radius: 10px;
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      position: relative;
+    }
+
+    /* ── Header ─────────────────────────────── */
+    header {
+      background: var(--card);
+      border-bottom: 1px solid var(--border);
+      padding: 14px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+    header h1 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.3px; }
+    header h1 span { color: var(--accent); }
+    .badge {
+      font-size: 0.72rem;
+      background: var(--accent);
+      color: #fff;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+    }
+
+    /* ── Layout ─────────────────────────────── */
+    .container { display: flex; flex: 1; overflow: hidden; }
+
+    /* ── Sidebar ────────────────────────────── */
+    .sidebar {
+      width: 320px;
+      background: var(--card);
+      border-right: 1px solid var(--border);
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+      overflow-y: auto;
+      flex-shrink: 0;
+    }
+
+    .tab-group {
+      display: flex;
+      background: var(--bg);
+      border-radius: var(--radius);
+      padding: 3px;
+      gap: 2px;
+    }
+    .tab-btn {
+      flex: 1;
+      padding: 10px 0;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      font-size: 0.81rem;
+      font-weight: 600;
+      cursor: pointer;
+      border-radius: 7px;
+      transition: all .2s;
+    }
+    .tab-btn.active { background: var(--accent); color: #fff; }
+    .tab-btn:hover:not(.active) { color: var(--text); background: rgba(255,255,255,.04); }
+
+    .section-title {
+      font-size: 0.68rem;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      color: var(--muted);
+      margin-bottom: -6px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      cursor: pointer;
+      user-select: none;
+    }
+    .section-title .toggle-icon { font-size: 0.75rem; transition: transform .2s; }
+    .section-title.collapsed .toggle-icon { transform: rotate(-90deg); }
+    .section-body { transition: all .25s; }
+    .section-body.hidden { display: none; }
+
+    /* ── Slider ─────────────────────────────── */
+    .slider-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+    .slider-row label { font-size: 0.83rem; white-space: nowrap; }
+    .slider-row input[type=range] { flex: 1; accent-color: var(--accent); }
+    .slider-row .val {
+      font-size: 0.78rem;
+      min-width: 32px;
+      text-align: right;
+      color: var(--accent);
+      font-weight: 600;
+    }
+
+    /* ── Buttons ────────────────────────────── */
+    .btn {
+      padding: 9px 14px;
+      border: none;
+      border-radius: var(--radius);
+      font-weight: 600;
+      font-size: 0.83rem;
+      cursor: pointer;
+      transition: all .2s;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+    }
+    .btn-primary { background: var(--accent); color: #fff; width: 100%; }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-primary:disabled { opacity: .5; cursor: not-allowed; }
+    .btn-danger { background: var(--danger); color: #fff; }
+    .btn-danger:hover { opacity: .85; }
+    .btn-sm { padding: 4px 10px; font-size: 0.7rem; border-radius: 5px; }
+    .btn-outline {
+      background: transparent; color: var(--muted); border: 1px solid var(--border);
+    }
+    .btn-outline:hover { color: var(--text); border-color: var(--accent); }
+
+    .file-upload { position: relative; }
+    .file-upload input[type=file] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer;
+    }
+    .file-upload .btn { width: 100%; pointer-events: none; }
+
+    /* ── Info row ───────────────────────────── */
+    .info-row {
+      display: flex; justify-content: space-between;
+      font-size: 0.8rem; color: var(--muted);
+    }
+    .info-row strong { color: var(--text); }
+
+    /* ── Class filter grid ──────────────────── */
+    .filter-toolbar {
+      display: flex; gap: 4px; margin-bottom: 6px;
+    }
+    .filter-toolbar .btn-sm { flex: 1; }
+
+    .filter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 2px 6px;
+      max-height: 160px;
+      overflow-y: auto;
+      padding-right: 4px;
+    }
+    .filter-grid label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.73rem;
+      color: var(--muted);
+      cursor: pointer;
+      padding: 3px 4px;
+      border-radius: 4px;
+      transition: all .15s;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .filter-grid label:hover { background: rgba(255,255,255,.04); color: var(--text); }
+    .filter-grid label.checked { color: var(--text); }
+    .filter-grid input[type=checkbox] {
+      accent-color: var(--accent); flex-shrink: 0;
+    }
+
+    /* ── Alert config ───────────────────────── */
+    .alert-config {
+      display: flex; flex-direction: column; gap: 8px;
+    }
+    .alert-config select, .alert-config input {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 7px 10px;
+      font-size: 0.82rem;
+      width: 100%;
+    }
+    .alert-config select:focus, .alert-config input:focus {
+      outline: none; border-color: var(--accent);
+    }
+    .alert-config .row {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .alert-config .row label { font-size: 0.78rem; white-space: nowrap; color: var(--muted); }
+    .alert-config .row input { flex: 1; }
+
+    /* ── Main display ───────────────────────── */
+    .main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+      gap: 16px;
+      overflow: hidden;
+    }
+    .view-wrap {
+      position: relative;
+      max-width: 100%;
+      max-height: 68vh;
+      background: #000;
+      border-radius: var(--radius);
+      overflow: hidden;
+      box-shadow: 0 0 40px rgba(0,0,0,.5);
+      border: 1px solid var(--border);
+    }
+    .view-wrap img, .view-wrap video, .view-wrap canvas {
+      display: block;
+      max-width: 100%;
+      max-height: 68vh;
+      object-fit: contain;
+    }
+    .placeholder {
+      color: var(--muted);
+      text-align: center;
+      padding: 60px 40px;
+    }
+    .placeholder svg { margin-bottom: 12px; opacity: .4; }
+    .placeholder p { font-size: 0.95rem; margin-top: 8px; }
+    .fps-badge {
+      position: absolute;
+      top: 10px; right: 12px;
+      background: rgba(0,0,0,.7);
+      color: var(--success);
+      padding: 4px 10px;
+      border-radius: 5px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      font-family: monospace;
+    }
+
+    /* ── Detections list ────────────────────── */
+    .det-list {
+      width: 100%;
+      max-width: 720px;
+      max-height: 150px;
+      overflow-y: auto;
+      background: var(--card);
+      border-radius: var(--radius);
+      border: 1px solid var(--border);
+      padding: 10px 14px;
+      font-size: 0.8rem;
+    }
+    .det-item {
+      display: flex; align-items: center; gap: 8px;
+      padding: 4px 0; border-bottom: 1px solid var(--border);
+    }
+    .det-item:last-child { border-bottom: none; }
+    .det-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%; flex-shrink: 0;
+    }
+    .det-name { flex: 1; }
+    .det-conf { color: var(--accent); font-weight: 600; font-size: 0.76rem; }
+
+    /* ── Alert Toast ────────────────────────── */
+    .toast-overlay {
+      position: fixed;
+      top: 0; left: 0; right: 0; bottom: 0;
+      pointer-events: none;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      z-index: 9999;
+      padding-top: 80px;
+    }
+    .toast {
+      pointer-events: auto;
+      background: #1a0000;
+      border: 2px solid var(--danger);
+      color: #fff;
+      padding: 18px 28px;
+      border-radius: var(--radius);
+      text-align: center;
+      animation: toastIn .35s ease-out, toastPulse 1s ease-in-out infinite 1s;
+      box-shadow: 0 0 40px rgba(239,68,68,.5);
+      display: flex;
+      align-items: center;
+      gap: 14px;
+    }
+    .toast .icon { font-size: 2rem; }
+    .toast .msg { font-size: 1.05rem; font-weight: 700; }
+    .toast .sub { font-size: 0.8rem; color: #fca5a5; margin-top: 2px; }
+    .toast .btn-close {
+      margin-left: 16px;
+      background: rgba(255,255,255,.1);
+      border: none;
+      color: #fff;
+      padding: 6px 14px;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: 600;
+      font-size: 0.8rem;
+    }
+    .toast .btn-close:hover { background: rgba(255,255,255,.2); }
+
+    @keyframes toastIn {
+      from { opacity: 0; transform: translateY(-30px) scale(.95); }
+      to   { opacity: 1; transform: translateY(0) scale(1); }
+    }
+    @keyframes toastPulse {
+      0%,100% { box-shadow: 0 0 40px rgba(239,68,68,.5); }
+      50%      { box-shadow: 0 0 60px rgba(239,68,68,.8); }
+    }
+
+    /* ── Responsive ─────────────────────────── */
+    @media (max-width: 768px) {
+      .container { flex-direction: column; }
+      .sidebar { width: 100%; border-right: none; border-bottom: 1px solid var(--border); max-height: 45vh; }
+      .main { padding: 12px; }
+      .view-wrap img, .view-wrap video, .view-wrap canvas { max-height: 40vh; }
+      .filter-grid { grid-template-columns: 1fr 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ======  Header  ====== -->
+  <header>
+    <h1>🔍 YOLOv5 <span>实时目标检测</span></h1>
+    <div style="display:flex;gap:8px;align-items:center;">
+      <span id="model-badge" class="badge">yolov5s.pt</span>
+      <span id="device-badge" class="badge" style="background:#22c55e;">CPU</span>
+    </div>
+  </header>
+
+  <!-- ======  Body  ====== -->
+  <div class="container">
+
+    <!-- ====== Sidebar ====== -->
+    <aside class="sidebar">
+
+      <!-- Mode tabs -->
+      <div class="section-title">输入模式</div>
+      <div class="tab-group" id="tab-group">
+        <button class="tab-btn active" data-mode="camera">📷 摄像头</button>
+        <button class="tab-btn" data-mode="video">🎬 视频</button>
+        <button class="tab-btn" data-mode="image">🖼️ 图片</button>
+      </div>
+
+      <!-- Sliders -->
+      <div class="section-title">参数设置</div>
+      <div class="slider-row">
+        <label for="conf-slider">置信度</label>
+        <input type="range" id="conf-slider" min="0.05" max="0.95" step="0.05" value="0.35">
+        <span class="val" id="conf-val">0.35</span>
+      </div>
+      <div class="slider-row">
+        <label for="iou-slider">IoU</label>
+        <input type="range" id="iou-slider" min="0.1" max="0.9" step="0.05" value="0.45">
+        <span class="val" id="iou-val">0.45</span>
+      </div>
+
+      <!-- Class filter (collapsible) -->
+      <div class="section-title" id="filter-header" style="cursor:pointer;">
+        🏷️ 标签筛选 <span class="toggle-icon">▼</span>
+      </div>
+      <div class="section-body" id="filter-body">
+        <div class="filter-toolbar">
+          <button class="btn btn-sm btn-outline" id="btn-select-all">全选</button>
+          <button class="btn btn-sm btn-outline" id="btn-select-none">取消</button>
+        </div>
+        <div class="filter-grid" id="filter-grid">
+          <span style="color:var(--muted);font-size:.73rem;">加载中…</span>
+        </div>
+      </div>
+
+      <!-- Alert config (collapsible) -->
+      <div class="section-title" id="alert-header" style="cursor:pointer;">
+        🚨 警报设置 <span class="toggle-icon">▼</span>
+      </div>
+      <div class="section-body" id="alert-body">
+        <div class="alert-config">
+          <div class="row">
+            <label>目标标签</label>
+            <select id="alert-class">
+              <option value="">— 选择标签 —</option>
+            </select>
+          </div>
+          <div class="row">
+            <label>连续帧数</label>
+            <input type="number" id="alert-frames" value="15" min="3" max="300" step="1">
+          </div>
+          <div class="row" style="font-size:.73rem;color:var(--muted);">
+            <span>当前:</span><strong id="alert-counter" style="color:var(--text);">0</strong><span>帧</span>
+            <span style="margin-left:auto;">阈值: <strong id="alert-threshold-display">15</strong> 帧</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mode controls -->
+      <div id="camera-ctls">
+        <button id="cam-start" class="btn btn-primary">▶ 开启摄像头</button>
+        <button id="cam-stop" class="btn btn-danger" style="display:none;">⏹ 停止</button>
+      </div>
+      <div id="video-ctls" style="display:none;">
+        <div class="file-upload">
+          <input type="file" id="video-file" accept="video/*">
+          <button class="btn btn-primary">📁 选择视频文件</button>
+        </div>
+        <button id="vid-start" class="btn btn-primary" style="display:none;">▶ 开始检测</button>
+        <button id="vid-stop" class="btn btn-danger" style="display:none;">⏹ 停止</button>
+      </div>
+      <div id="image-ctls" style="display:none;">
+        <div class="file-upload">
+          <input type="file" id="image-file" accept="image/*">
+          <button class="btn btn-primary">📁 选择图片</button>
+        </div>
+      </div>
+
+      <!-- Info -->
+      <div class="section-title">检测信息</div>
+      <div class="info-row"><span>检测数量</span><strong id="det-count">—</strong></div>
+      <div class="info-row"><span>推理耗时</span><strong id="inf-time">—</strong></div>
+      <div class="info-row"><span>FPS</span><strong id="fps-display">—</strong></div>
+    </aside>
+
+    <!-- ====== Main display ====== -->
+    <main class="main">
+      <div class="view-wrap" id="view-wrap">
+        <video id="cam-video" autoplay playsinline muted style="display:none;"></video>
+        <video id="vid-video" controls style="display:none;"></video>
+        <canvas id="display-canvas" style="display:none;"></canvas>
+        <img id="display-img" style="display:none;" alt="result">
+        <div class="placeholder" id="placeholder">
+          <svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+            <rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="m21 15-5-5L5 21"/>
+          </svg>
+          <p>选择输入源并点击"开启摄像头"或上传文件</p>
+        </div>
+        <div class="fps-badge" id="fps-badge" style="display:none;">0 FPS</div>
+      </div>
+
+      <!-- Detection list -->
+      <div class="det-list" id="det-list">
+        <span style="color:var(--muted);">等待检测结果…</span>
+      </div>
+    </main>
+  </div>
+
+  <!-- ====== Alert toast overlay ====== -->
+  <div class="toast-overlay" id="toast-overlay" style="display:none;">
+    <div class="toast">
+      <span class="icon">🚨</span>
+      <div>
+        <div class="msg" id="toast-msg">检测到目标!</div>
+        <div class="sub" id="toast-sub"></div>
+      </div>
+      <button class="btn-close" id="toast-dismiss">关闭</button>
+    </div>
+  </div>
+
+  <!-- ======  Scripts  ====== -->
+  <script>
+    // ── DOM refs ──────────────────────────
+    const $ = s => document.querySelector(s);
+    const $$ = s => document.querySelectorAll(s);
+
+    const tabs          = $$('.tab-btn');
+    const camVideo      = $('#cam-video');
+    const vidVideo      = $('#vid-video');
+    const displayCanvas = $('#display-canvas');
+    const displayImg    = $('#display-img');
+    const placeholder   = $('#placeholder');
+    const fpsBadge      = $('#fps-badge');
+    const detList       = $('#det-list');
+    const detCount      = $('#det-count');
+    const infTime       = $('#inf-time');
+    const fpsDisplay    = $('#fps-display');
+    const filterGrid    = $('#filter-grid');
+    const filterHeader  = $('#filter-header');
+    const filterBody    = $('#filter-body');
+    const alertHeader   = $('#alert-header');
+    const alertBody     = $('#alert-body');
+    const alertClass    = $('#alert-class');
+    const alertFrames   = $('#alert-frames');
+    const alertCounter  = $('#alert-counter');
+    const alertThresh   = $('#alert-threshold-display');
+    const toastOverlay  = $('#toast-overlay');
+    const toastMsg      = $('#toast-msg');
+    const toastSub      = $('#toast-sub');
+    const toastDismiss  = $('#toast-dismiss');
+
+    // ── App state ─────────────────────────
+    let currentMode    = 'camera';
+    let camStream      = null;
+    let isRunning      = false;
+    let animFrameId    = null;
+    let lastFrameTime  = 0;
+    let fpsHistory     = [];
+    let detColorMap    = {};
+    let allClassNames  = [];       // from /api/model_info
+    let alertConsecutive = 0;
+    let alertFired     = false;
+
+    // ── Color palette ─────────────────────
+    const CLASS_COLORS = [
+      '#3b82f6','#ef4444','#22c55e','#f59e0b','#8b5cf6','#ec4899',
+      '#06b6d4','#f97316','#84cc16','#14b8a6','#6366f1','#e11d48',
+      '#10b981','#d946ef','#0ea5e9','#fbbf24','#a855f7','#78716c',
+      '#65a30d','#0891b2','#dc2626','#7c3aed','#059669','#ea580c',
+    ];
+
+    function getClassColor(cls) {
+      if (!detColorMap[cls]) {
+        detColorMap[cls] = CLASS_COLORS[Object.keys(detColorMap).length % CLASS_COLORS.length];
+      }
+      return detColorMap[cls];
+    }
+
+    // ── Collapse sections ─────────────────
+    [filterHeader, alertHeader].forEach(hdr => {
+      hdr.addEventListener('click', () => {
+        const body = hdr === filterHeader ? filterBody : alertBody;
+        hdr.classList.toggle('collapsed');
+        body.classList.toggle('hidden');
+      });
+    });
+
+    // ── Load class names from server ──────
+    async function loadClassNames() {
+      try {
+        const resp = await fetch('/api/model_info');
+        const data = await resp.json();
+        allClassNames = data.classes;
+        buildFilterGrid();
+        buildAlertSelect();
+      } catch (err) {
+        console.error('Failed to load class names:', err);
+        allClassNames = [];
+      }
+    }
+
+    function buildFilterGrid() {
+      filterGrid.innerHTML = allClassNames.map((c, i) => `
+        <label class="checked">
+          <input type="checkbox" value="${c.id}" checked>
+          ${c.name}
+        </label>
+      `).join('');
+
+      // Update "checked" class on change
+      filterGrid.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.addEventListener('change', () => {
+          cb.parentElement.classList.toggle('checked', cb.checked);
+        });
+      });
+    }
+
+    function buildAlertSelect() {
+      alertClass.innerHTML = '<option value="">— 选择标签 —</option>' +
+        allClassNames.map(c => `<option value="${c.id}">${c.name}</option>`).join('');
+    }
+
+    // ── Get active class filter ───────────
+    function getActiveClassFilter() {
+      const boxes = filterGrid.querySelectorAll('input[type=checkbox]');
+      const all = filterGrid.querySelectorAll('input[type=checkbox]').length;
+      let selected = [];
+      boxes.forEach(cb => { if (cb.checked) selected.push(parseInt(cb.value)); });
+      // If all selected, send nothing (no filter = faster)
+      if (selected.length === 0) return '__none__';
+      if (selected.length === all) return '';
+      return selected.join(',');
+    }
+
+    // ── Select all / none ─────────────────
+    $('#btn-select-all').addEventListener('click', () => {
+      filterGrid.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.checked = true;
+        cb.parentElement.classList.add('checked');
+      });
+    });
+    $('#btn-select-none').addEventListener('click', () => {
+      filterGrid.querySelectorAll('input[type=checkbox]').forEach(cb => {
+        cb.checked = false;
+        cb.parentElement.classList.remove('checked');
+      });
+    });
+
+    // ── Tab switching ─────────────────────
+    tabs.forEach(btn => {
+      btn.addEventListener('click', () => {
+        stopAll();
+        tabs.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentMode = btn.dataset.mode;
+        updateUIForMode();
+      });
+    });
+
+    function updateUIForMode() {
+      $('#camera-ctls').style.display = currentMode === 'camera' ? '' : 'none';
+      $('#video-ctls').style.display   = currentMode === 'video'   ? '' : 'none';
+      $('#image-ctls').style.display   = currentMode === 'image'   ? '' : 'none';
+      resetDisplay();
+    }
+
+    function resetDisplay() {
+      camVideo.style.display    = 'none';
+      vidVideo.style.display    = 'none';
+      displayCanvas.style.display = 'none';
+      displayImg.style.display  = 'none';
+      placeholder.style.display = '';
+      fpsBadge.style.display    = 'none';
+      detList.innerHTML = '<span style="color:var(--muted);">等待检测结果…</span>';
+      detCount.textContent  = '—';
+      infTime.textContent   = '—';
+      fpsDisplay.textContent = '—';
+      resetAlert();
+    }
+
+    function showCanvas(srcW, srcH) {
+      placeholder.style.display    = 'none';
+      camVideo.style.display       = 'none';
+      vidVideo.style.display       = 'none';
+      displayImg.style.display     = 'none';
+      displayCanvas.style.display  = '';
+      displayCanvas.width  = srcW;
+      displayCanvas.height = srcH;
+      fpsBadge.style.display = '';
+    }
+
+    function showImage() {
+      placeholder.style.display    = 'none';
+      camVideo.style.display       = 'none';
+      vidVideo.style.display       = 'none';
+      displayCanvas.style.display  = 'none';
+      displayImg.style.display     = '';
+      fpsBadge.style.display       = 'none';
+    }
+
+    // ── Helpers ───────────────────────────
+    function blobToBase64(blob) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+      });
+    }
+
+    function canvasToBlob(canvas) {
+      return new Promise(resolve => canvas.toBlob(resolve, 'image/jpeg', 0.85));
+    }
+
+    // ── Send frame to server ──────────────
+    async function detectFrame(blob) {
+      const base64 = await blobToBase64(blob);
+      const t0 = performance.now();
+
+      const conf  = parseFloat($('#conf-slider').value);
+      const iou   = parseFloat($('#iou-slider').value);
+      const classes = getActiveClassFilter();
+      if (classes === '__none__') {
+        return { frame: base64, detections: [], count: 0, elapsed: performance.now() - t0 };
+      }
+
+      const url = `/api/detect_frame?conf=${conf}&iou=${iou}&classes=${encodeURIComponent(classes)}`;
+      const resp = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ frame: base64, classes: classes }),
+      });
+
+      if (!resp.ok) throw new Error('Server error');
+      const data = await resp.json();
+      data.elapsed = performance.now() - t0;
+      return data;
+    }
+
+    // ── Alert logic ───────────────────────
+    function resetAlert() {
+      alertConsecutive = 0;
+      alertFired = false;
+      alertCounter.textContent = '0';
+    }
+
+    function checkAlert(detections) {
+      const targetId = alertClass.value;
+      if (!targetId || targetId === '') {
+        alertConsecutive = 0;
+        alertCounter.textContent = '0';
+        return;
+      }
+
+      const target = parseInt(targetId);
+      const found = detections.some(d => d.class_id === target);
+
+      if (found) {
+        alertConsecutive++;
+        alertCounter.textContent = alertConsecutive;
+        const threshold = parseInt(alertFrames.value) || 15;
+        if (!alertFired && alertConsecutive >= threshold) {
+          alertFired = true;
+          fireAlert(target, alertConsecutive);
+        }
+      } else {
+        alertConsecutive = 0;
+        alertCounter.textContent = '0';
+        alertFired = false;
+      }
+    }
+
+    function fireAlert(targetId, frames) {
+      const name = allClassNames.find(c => c.id === targetId);
+      const labelName = name ? name.name : `ID:${targetId}`;
+      toastMsg.textContent = `⚠️ 检测到 "${labelName}"`;
+      toastSub.textContent = `已连续 ${frames} 帧检测到该目标`;
+      toastOverlay.style.display = '';
+
+      // Auto-dismiss after 8 seconds
+      clearTimeout(toastOverlay._timeout);
+      toastOverlay._timeout = setTimeout(() => {
+        toastOverlay.style.display = 'none';
+      }, 8000);
+    }
+
+    toastDismiss.addEventListener('click', () => {
+      toastOverlay.style.display = 'none';
+      clearTimeout(toastOverlay._timeout);
+    });
+
+    // ── Sync alert threshold display ──────
+    alertFrames.addEventListener('input', () => {
+      alertThresh.textContent = alertFrames.value;
+    });
+
+    // ── Update results UI ─────────────────
+    function updateResults(data) {
+      detCount.textContent  = data.count;
+      infTime.textContent   = data.elapsed ? `${data.elapsed.toFixed(0)} ms` : '—';
+
+      if (data.count === 0) {
+        detList.innerHTML = '<span style="color:var(--muted);">未检测到目标</span>';
+      } else {
+        detList.innerHTML = data.detections.map(d => {
+          const color = getClassColor(d.class);
+          return `<div class="det-item">
+            <div class="det-dot" style="background:${color};"></div>
+            <span class="det-name">${d.class}</span>
+            <span class="det-conf">${(d.confidence*100).toFixed(1)}%</span>
+          </div>`;
+        }).join('');
+      }
+
+      // FPS
+      const now = performance.now();
+      if (lastFrameTime) {
+        fpsHistory.push(1000 / (now - lastFrameTime));
+        if (fpsHistory.length > 30) fpsHistory.shift();
+        const avg = fpsHistory.reduce((a,b)=>a+b,0) / fpsHistory.length;
+        fpsBadge.textContent = `${avg.toFixed(1)} FPS`;
+        fpsDisplay.textContent = `${avg.toFixed(1)}`;
+      }
+      lastFrameTime = now;
+
+      // Alert check (video / camera modes)
+      if (currentMode === 'camera' || currentMode === 'video') {
+        checkAlert(data.detections);
+      }
+    }
+
+    // ── Draw annotated result ─────────────
+    function drawAnnotation(dataUrl) {
+      const img = new Image();
+      img.onload = () => {
+        displayCanvas.width  = img.width;
+        displayCanvas.height = img.height;
+        displayCanvas.getContext('2d').drawImage(img, 0, 0);
+        updateResults(window._lastDetectData);
+      };
+      img.src = dataUrl;
+    }
+
+    // ── Camera loop ───────────────────────
+    async function cameraLoop() {
+      if (!isRunning || currentMode !== 'camera') return;
+
+      const ctx = displayCanvas.getContext('2d');
+      displayCanvas.width  = camVideo.videoWidth;
+      displayCanvas.height = camVideo.videoHeight;
+      ctx.drawImage(camVideo, 0, 0);
+
+      try {
+        const blob = await canvasToBlob(displayCanvas);
+        const data = await detectFrame(blob);
+        window._lastDetectData = data;
+
+        // If no classes selected, just draw original frame
+        if (data.frame !== undefined) {
+          drawAnnotation(data.frame);
+        } else {
+          // All classes filtered out — draw original and update stats
+          const ctx2 = displayCanvas.getContext('2d');
+          ctx2.drawImage(camVideo, 0, 0);
+          updateResults(data);
+        }
+      } catch (err) {
+        console.error('Detection error:', err);
+      }
+
+      animFrameId = requestAnimationFrame(cameraLoop);
+    }
+
+    // ── Video loop ────────────────────────
+    async function videoLoop() {
+      if (!isRunning || currentMode !== 'video' || vidVideo.paused || vidVideo.ended) {
+        stopVideo();
+        return;
+      }
+
+      const ctx = displayCanvas.getContext('2d');
+      displayCanvas.width  = vidVideo.videoWidth;
+      displayCanvas.height = vidVideo.videoHeight;
+      ctx.drawImage(vidVideo, 0, 0);
+
+      try {
+        const blob = await canvasToBlob(displayCanvas);
+        const data = await detectFrame(blob);
+        window._lastDetectData = data;
+        drawAnnotation(data.frame);
+      } catch (err) {
+        console.error('Detection error:', err);
+      }
+
+      animFrameId = requestAnimationFrame(videoLoop);
+    }
+
+    // ── Camera controls ───────────────────
+    $('#cam-start').addEventListener('click', async () => {
+      try {
+        camStream = await navigator.mediaDevices.getUserMedia({
+          video: { width: { ideal: 640 }, height: { ideal: 480 }, facingMode: 'environment' }
+        });
+        camVideo.srcObject = camStream;
+        await camVideo.play();
+        showCanvas(camVideo.videoWidth, camVideo.videoHeight);
+        isRunning = true;
+        resetAlert();
+        $('#cam-start').style.display = 'none';
+        $('#cam-stop').style.display = '';
+        cameraLoop();
+      } catch (err) {
+        alert('摄像头启动失败: ' + err.message);
+      }
+    });
+
+    $('#cam-stop').addEventListener('click', () => { stopAll(); updateUIForMode(); });
+
+    // ── Video controls ────────────────────
+    $('#video-file').addEventListener('change', function() {
+      const file = this.files[0];
+      if (!file) return;
+      const url = URL.createObjectURL(file);
+      vidVideo.src = url;
+      vidVideo.style.display = '';
+      showCanvas(640, 480);
+      $('#vid-start').style.display = '';
+    });
+
+    $('#vid-start').addEventListener('click', async () => {
+      await vidVideo.play();
+      showCanvas(vidVideo.videoWidth, vidVideo.videoHeight);
+      isRunning = true;
+      resetAlert();
+      $('#vid-start').style.display = 'none';
+      $('#vid-stop').style.display = '';
+      videoLoop();
+    });
+
+    $('#vid-stop').addEventListener('click', () => stopVideo());
+
+    function stopVideo() {
+      isRunning = false;
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      vidVideo.pause();
+      $('#vid-start').style.display = '';
+      $('#vid-stop').style.display = 'none';
+    }
+
+    // ── Image controls ────────────────────
+    $('#image-file').addEventListener('change', async function() {
+      const file = this.files[0];
+      if (!file) return;
+
+      const previewUrl = URL.createObjectURL(file);
+      displayImg.src = previewUrl;
+      showImage();
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      // Append class filter
+      const classes = getActiveClassFilter();
+      const url = classes ? `/api/detect_image?classes=${encodeURIComponent(classes)}` : '/api/detect_image';
+
+      detList.innerHTML = '<span style="color:var(--muted);">检测中…</span>';
+      const t0 = performance.now();
+
+      try {
+        const resp = await fetch(url, { method: 'POST', body: formData });
+        const data = await resp.json();
+        data.elapsed = performance.now() - t0;
+        displayImg.src = data.image;
+        updateResults(data);
+      } catch (err) {
+        detList.innerHTML = `<span style="color:var(--danger);">检测失败: ${err.message}</span>`;
+      }
+    });
+
+    // ── Stop all ──────────────────────────
+    function stopAll() {
+      isRunning = false;
+      if (animFrameId) { cancelAnimationFrame(animFrameId); animFrameId = null; }
+      if (camStream) {
+        camStream.getTracks().forEach(t => t.stop());
+        camStream = null;
+      }
+      vidVideo.pause();
+      vidVideo.src = '';
+      $('#cam-start').style.display = '';
+      $('#cam-stop').style.display = 'none';
+      $('#vid-start').style.display = 'none';
+      $('#vid-stop').style.display = 'none';
+      resetAlert();
+    }
+
+    // ── Slider display sync ───────────────
+    $('#conf-slider').addEventListener('input', function() {
+      $('#conf-val').textContent = parseFloat(this.value).toFixed(2);
+    });
+    $('#iou-slider').addEventListener('input', function() {
+      $('#iou-val').textContent = parseFloat(this.value).toFixed(2);
+    });
+
+    // ── Init ──────────────────────────────
+    updateUIForMode();
+    loadClassNames();
+  </script>
+</body>
+</html>
