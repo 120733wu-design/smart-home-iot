@@ -17,8 +17,9 @@ class Config:
     USE_SQLITE = os.environ.get('USE_SQLITE', 'False') == 'True'
     SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), 'dev.db')
 
-    # MQTT 本地EMQX
-    MQTT_BROKER_HOST = os.environ.get('MQTT_BROKER_HOST', '127.0.0.1')
+    # MQTT Broker：ESP硬件连阿里云公网EMQX 182.92.86.89
+    # 本地开发如需使用本地EMQX，设置环境变量 MQTT_BROKER_HOST=127.0.0.1
+    MQTT_BROKER_HOST = os.environ.get('MQTT_BROKER_HOST', '182.92.86.89')
     MQTT_BROKER_PORT = int(os.environ.get('MQTT_BROKER_PORT', 1883))
     MQTT_USERNAME = os.environ.get('MQTT_USERNAME', '')
     MQTT_PASSWORD = os.environ.get('MQTT_PASSWORD', '')

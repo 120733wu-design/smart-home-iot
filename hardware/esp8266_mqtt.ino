@@ -1,6 +1,18 @@
 /*
  * Smart Home ESP8266 Firmware
  * Hardware: ESP8266 + DHT11 + BH1750 + OLED + Relay + Buzzer
+ *
+ * MQTT Topic 规范 (四段式):
+ *   上报传感器: device/<DEVICE_KEY>/sensor/temperature
+ *               device/<DEVICE_KEY>/sensor/humidity
+ *               device/<DEVICE_KEY>/sensor/light
+ *   心跳状态:   device/<DEVICE_KEY>/status
+ *   告警:       device/<DEVICE_KEY>/alert
+ *   控制应答:   device/<DEVICE_KEY>/control/ack
+ *
+ * MQTT Broker:
+ *   阿里云公网: 182.92.86.89:1883 (ESP/硬件使用)
+ *   本地开发:   127.0.0.1:1883   (本地Flask后端)
  */
 #include <ESP8266WiFi.h>
 #include <PubSubClient.h>
@@ -10,8 +22,11 @@
 #include <BH1750.h>
 const char *WIFI_SSID = "yiwu";
 const char *WIFI_PASS = "1207yiwu";
-const char *MQTT_HOST = "192.168.76.149";
+// MQTT Broker: ESP硬件连阿里云公网EMQX 182.92.86.89
+// Flask后端在宝塔上应连同一个Broker；本地开发可改为127.0.0.1
+const char *MQTT_HOST = "182.92.86.89";
 const int MQTT_PORT = 1883;
+// 设备唯一标识，用于MQTT Topic: device/<DEVICE_KEY>/...
 const char *DEVICE_KEY = "esp8266-001";
 #define DHT_PIN 5 #define DHT_TYPE DHT11
 #define BUZZER_PIN 4 #define RELAY1_PIN 16 #define RELAY2_PIN 3

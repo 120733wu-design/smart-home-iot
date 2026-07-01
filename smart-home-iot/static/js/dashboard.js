@@ -16,7 +16,7 @@ function getCSTDate(rawStr) {
 
 // 室外天气加载函数（适配apiGet容错，404友好处理）
 async function loadOutdoorWeather() {
-    const res = await apiGet("/api/data/weather/outdoor?city=天津");
+    const res = await apiGet("/api/weather/outdoor?city=天津");
     const tempDom = document.getElementById("out-temp");
     const humDom = document.getElementById("out-humi");
     const weatherDom = document.getElementById("out-weather-text");

@@ -31,17 +31,35 @@ def on_message(client, userdata, msg):
         print(f"[MQTT RECV] Topic: {topic} | Payload: {payload}")
 
         parts = topic.split('/')
-        device_key = parts[1]
+        device_key = parts[1] if len(parts) > 1 else ''
         sub_topic = parts[2] if len(parts) > 2 else ''
 
         from models.device import DeviceModel
         device = DeviceModel.find_by_key(device_key)
+
+        # ===== 兼容三段式无设备ID主题 =====
+        # ESP固件旧版可能发 device/sensor/temp（三段），device_key='sensor' 在DB中无匹配
+        # 此时自动 fallback 到数据库第一个 type='sensor' 的设备
+        if (not device or not device.get('id')) and sub_topic in _SENSOR_TYPE_MAP:
+            # 三段式：device/<sensor_type_or_unknown>/<type>，尝试按传感器类型查找设备
+            all_devices = DeviceModel.list_all()
+            sensor_devices = [d for d in all_devices if d.get('type') == 'sensor']
+            if sensor_devices:
+                device = sensor_devices[0]
+                print(f"[MQTT] 三段式Topic自动匹配设备: key={device['device_key']} id={device['id']} (原始topic={topic})")
+
         if not device or not device.get('id'):
-            print(f"[MQTT] 数据库无此设备 key={device_key}，丢弃数据")
+            # 增强诊断：打印详细的 topic 信息帮助排查硬件连接问题
+            print(f"[MQTT] 数据库无此设备 key={device_key} (topic={topic} parts={parts})")
+            print(f"[MQTT] 诊断提示: 请确认硬件MQTT Broker地址一致 | 当前Broker={Config.MQTT_BROKER_HOST}:{Config.MQTT_BROKER_PORT}")
+            print(f"[MQTT] 期望Topic格式: device/<device_key>/sensor/<type>")
             return
         did = device['id']
 
-        # 兼容两种主题格式：(1) device/<key>/sensor/<type> (2) device/<key>/<type> (flat)
+        # 兼容三种主题格式：
+        # (1) device/<key>/sensor/<type>  四段标准 (ESP8266新固件)
+        # (2) device/<key>/<type>         三段平铺 (带设备key)
+        # (3) device/sensor/<type>        三段旧格式 (无设备key，已在上面fallback处理)
         sensor_type = None
         if sub_topic == 'sensor' and len(parts) > 3:
             sensor_type = _SENSOR_TYPE_MAP.get(parts[3], parts[3])

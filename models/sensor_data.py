@@ -4,8 +4,9 @@ from datetime import datetime, timedelta
 class SensorDataModel:
     @staticmethod
     def insert(device_id, sensor_type, value, unit='', recorded_at=None):
-        # 过滤无效0/负数，不写入数据库
-        if float(value) <= 0:
+        # 只过滤明显非法的传感器值（负值超过物理极限），允许光照=0和温度=0等合法数据
+        v = float(value)
+        if v < -50 or v > 10000:
             return None
         if recorded_at:
             # 使用Python传入的标准北京时间
