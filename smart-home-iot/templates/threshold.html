@@ -71,7 +71,14 @@ async function loadDeviceList() {
     selDevice.innerHTML = '<option value="">-- 请选择设备 --</option>';
     deviceList.forEach(item => {
         selDevice.innerHTML += `<option value="${item.id}">${item.name} (${item.location || '无位置'})</option>`;
-    })
+    });
+    // 自动选中 type=sensor 的设备（优先 device_key='sensor'）
+    var sensorDev = deviceList.find(function(d) { return d.device_key === 'sensor'; });
+    if (!sensorDev) sensorDev = deviceList.find(function(d) { return d.type === 'sensor'; });
+    if (sensorDev) {
+        selDevice.value = sensorDev.id;
+        selDevice.dispatchEvent(new Event('change'));
+    }
 }
 
 // 切换设备自动加载已有阈值

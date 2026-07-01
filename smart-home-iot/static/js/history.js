@@ -126,6 +126,11 @@ function loadDevSel(sid, cb) {
         const sel = document.getElementById(sid);
         if (d.success && d.data.length) {
             sel.innerHTML = d.data.map(x => `<option value="${x.id}">${x.name} (${x.location || '-'})</option>`).join('');
+            // 自动选中 sensor 设备（优先 device_key='sensor'）
+            var sensorDev = d.data.find(function(x) { return x.device_key === 'sensor'; });
+            if (!sensorDev) sensorDev = d.data.find(function(x) { return x.type === 'sensor'; });
+            if (sensorDev) sel.value = sensorDev.id;
+            else if (_sensorDeviceId) sel.value = _sensorDeviceId;
             if (cb) cb();
         }
     });

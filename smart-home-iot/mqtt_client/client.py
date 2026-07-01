@@ -12,6 +12,29 @@ _SENSOR_TYPE_MAP = {
     'light': 'light',
 }
 
+# ========== device_key → device_id 缓存映射 ==========
+_device_id_cache = {}
+
+def _lookup_device_id(device_key):
+    """通过 device_key 查 device_id，带内存缓存，减少数据库查询"""
+    if device_key in _device_id_cache:
+        return _device_id_cache[device_key]
+    from models.device import DeviceModel
+    device = DeviceModel.find_by_key(device_key)
+    if device and device.get('id'):
+        _device_id_cache[device_key] = device['id']
+        print(f"[MQTT] Cached device: key={device_key} -> id={device['id']}")
+        return device['id']
+    return None
+
+def _invalidate_device_cache(device_key=None):
+    """清除设备缓存（设备增删后调用）"""
+    global _device_id_cache
+    if device_key:
+        _device_id_cache.pop(device_key, None)
+    else:
+        _device_id_cache = {}
+
 def on_connect(client, userdata, flags, rc):
     print(f"[MQTT] Connected (rc={rc})")
     if rc==0:
@@ -34,12 +57,20 @@ def on_message(client, userdata, msg):
         device_key = parts[1]
         sub_topic = parts[2] if len(parts) > 2 else ''
 
-        from models.device import DeviceModel
-        device = DeviceModel.find_by_key(device_key)
-        if not device or not device.get('id'):
-            print(f"[MQTT] 数据库无此设备 key={device_key}，丢弃数据")
-            return
-        did = device['id']
+        # 使用缓存查询 device_id（首次查库，后续走缓存）
+        did = _lookup_device_id(device_key)
+        if not did:
+            # 缓存未命中且数据库不存在 → 自动注册
+            from models.device import DeviceModel
+            try:
+                auto_name = f"Auto-{device_key}"
+                new_id = DeviceModel.create(name=auto_name, device_key=device_key, type='sensor', location='Auto')
+                _device_id_cache[device_key] = new_id
+                print(f"[MQTT] Auto-registered new device: key={device_key} id={new_id}")
+                did = new_id
+            except Exception as e:
+                print(f"[MQTT] Cannot auto-register device key={device_key}: {e}，丢弃数据")
+                return
 
         # 兼容两种主题格式：(1) device/<key>/sensor/<type> (2) device/<key>/<type> (flat)
         sensor_type = None
@@ -57,9 +88,13 @@ def on_message(client, userdata, msg):
             from models.sensor_data import SensorDataModel
             # 关键：sensor_data 也改用Python本地时间入库，和告警完全同源
             now_cst = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            SensorDataModel.insert(did, sensor_type, value, now_cst)
-            print(f"[MQTT] 入库成功 设备:{device_key} 传感器:{sensor_type} 值:{value}")
-            if device['status'] != 'online':
+            sensor_unit = 'C' if sensor_type == 'temperature' else ('%' if sensor_type == 'humidity' else 'lux')
+            SensorDataModel.insert(did, sensor_type, value, unit=sensor_unit, recorded_at=now_cst)
+            print(f"[MQTT] 入库成功 设备:{device_key}(id={did}) 传感器:{sensor_type} 值:{value}")
+            # 更新设备在线状态
+            from models.device import DeviceModel
+            dev_status = DeviceModel.find_by_key(device_key)
+            if dev_status and dev_status.get('status') != 'online':
                 DeviceModel.set_status(did, "online")
 
             # ===================== 新增阈值告警判断 =====================
@@ -69,33 +104,34 @@ def on_message(client, userdata, msg):
                 # 查询该设备对应传感器阈值配置
                 threshold = ThresholdModel.get_by_device(did, sensor_type)
                 if not threshold:
-                    # 该设备未配置阈值，跳过告警判断
-                    return
-                min_val = threshold.get("min_value")
-                max_val = threshold.get("max_value")
-                alert_msg = ""
-                sev = "warning"
-                # 判断低于下限
-                if min_val is not None and value < min_val:
-                    alert_msg = f"{'温度' if sensor_type=='temperature' else '湿度'}低于下限：当前{value}，阈值{min_val}"
-                # 判断超过上限
-                elif max_val is not None and value > max_val:
-                    alert_msg = f"{'温度' if sensor_type=='temperature' else '湿度'}超过上限：当前{value}，阈值{max_val}"
-                    sev = "critical"
-                # 存在异常则生成告警，60秒内同一条消息不重复创建
-                if alert_msg:
-                    # 统一本地北京时间，无手动+8
-                    now_cst = datetime.now()
-                    cut_time = (now_cst - timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S")
-                    recent = query(
-                        "SELECT id FROM alerts WHERE device_id=%s AND alert_type='threshold' AND message=%s AND created_at > %s LIMIT 1",
-                        (did, alert_msg, cut_time),
-                        fetchone=True
-                    )
-                    if not recent:
-                        now_str = now_cst.strftime("%Y-%m-%d %H:%M:%S")
-                        AlertModel.create(did, "threshold", sev, alert_msg, now_str)
-                        print(f"[MQTT] 生成阈值告警：{alert_msg}")
+                    # 该设备未配置阈值，跳过告警判断（不阻断后续处理）
+                    pass
+                else:
+                    min_val = threshold.get("min_value")
+                    max_val = threshold.get("max_value")
+                    alert_msg = ""
+                    sev = "warning"
+                    # 判断低于下限
+                    if min_val is not None and value < min_val:
+                        alert_msg = f"{'温度' if sensor_type=='temperature' else '湿度'}低于下限：当前{value}，阈值{min_val}"
+                    # 判断超过上限
+                    elif max_val is not None and value > max_val:
+                        alert_msg = f"{'温度' if sensor_type=='temperature' else '湿度'}超过上限：当前{value}，阈值{max_val}"
+                        sev = "critical"
+                    # 存在异常则生成告警，60秒内同一条消息不重复创建
+                    if alert_msg:
+                        # 统一本地北京时间，无手动+8
+                        now_cst = datetime.now()
+                        cut_time = (now_cst - timedelta(seconds=60)).strftime("%Y-%m-%d %H:%M:%S")
+                        recent = query(
+                            "SELECT id FROM alerts WHERE device_id=%s AND alert_type='threshold' AND message=%s AND created_at > %s LIMIT 1",
+                            (did, alert_msg, cut_time),
+                            fetchone=True
+                        )
+                        if not recent:
+                            now_str = now_cst.strftime("%Y-%m-%d %H:%M:%S")
+                            AlertModel.create(did, "threshold", sev, alert_msg, now_str)
+                            print(f"[MQTT] 生成阈值告警：{alert_msg}")
             # ==========================================================
 
         elif sub_topic == 'status':
@@ -124,14 +160,24 @@ def init_mqtt(app):
 def start_mqtt():
     global _mqtt_client
     # 确保已知硬件设备在数据库中存在，避免 MQTT 数据被丢弃
+    # 同时预热 device_key → device_id 缓存
     try:
         from models.device import DeviceModel
-        known_keys = ['esp8266-001']
+        known_keys = ['esp8266-001', 'sensor']  # sensor 是 ESP8266 真实上报的 device_key
         for k in known_keys:
             dev = DeviceModel.find_by_key(k)
             if not dev or not dev.get('id'):
-                DeviceModel.create(name='ESP8266客厅环境监测器', device_key=k, type='sensor', location='客厅')
-                print(f"[MQTT] 自动注册设备 key={k}")
+                new_id = DeviceModel.create(
+                    name=f'ESP8266-{k}',
+                    device_key=k,
+                    type='sensor',
+                    location='客厅' if '001' in k else 'Auto'
+                )
+                print(f"[MQTT] 自动注册设备 key={k} id={new_id}")
+            else:
+                print(f"[MQTT] 已存在设备 key={k} id={dev['id']}")
+            # 预热缓存
+            _device_id_cache[k] = DeviceModel.find_by_key(k)['id']
     except Exception as e:
         print(f"[MQTT] 自动注册设备失败: {e}")
 

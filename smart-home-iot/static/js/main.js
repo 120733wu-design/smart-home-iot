@@ -12,6 +12,59 @@ async function apiGet(u) {
     }
 }
 
+// ========== 全局设备缓存：device_key → device_id 自动映射 ==========
+var _deviceCache = null;
+var _sensorDeviceId = null;
+
+/**
+ * 自动从 /api/devices 获取设备列表，按 type='sensor' 精准匹配
+ * 所有页面统一调用此函数，不再写死 device_id 或取 ds.data[0].id
+ * @returns {number|null} 传感器设备的 ID，找不到返回 null
+ */
+async function getSensorDeviceId() {
+    if (_sensorDeviceId !== null) return _sensorDeviceId;
+    try {
+        const resp = await apiGet('/api/devices');
+        if (resp.success && resp.data.length) {
+            _deviceCache = resp.data;
+            // 精确匹配 type === 'sensor' 且有在线状态或最新数据的设备
+            // 优先匹配 device_key 包含 'sensor' 的设备（真实 ESP8266）
+            var sensorDev = resp.data.find(function(d) {
+                return d.device_key && d.device_key.toLowerCase() === 'sensor';
+            });
+            // 其次匹配 device_key 包含 'esp' 且 type === 'sensor' 的设备
+            if (!sensorDev) {
+                sensorDev = resp.data.find(function(d) {
+                    return d.device_key && d.device_key.toLowerCase().indexOf('esp') >= 0 && d.type === 'sensor';
+                });
+            }
+            // 最后 fallback: 第一个 type === 'sensor' 的设备
+            if (!sensorDev) {
+                sensorDev = resp.data.find(function(d) { return d.type === 'sensor'; });
+            }
+            if (sensorDev) {
+                _sensorDeviceId = sensorDev.id;
+                console.log('[Device] Auto-selected sensor device: id=' + sensorDev.id + ' key=' + sensorDev.device_key + ' name=' + sensorDev.name);
+            } else {
+                console.warn('[Device] No sensor-type device found, falling back to first device id=' + resp.data[0].id);
+                _sensorDeviceId = resp.data[0].id;
+            }
+        }
+    } catch(e) {
+        console.error('[Device] Failed to load device list:', e);
+    }
+    return _sensorDeviceId;
+}
+
+/**
+ * 强制刷新设备缓存（设备增删后调用）
+ */
+async function refreshDeviceCache() {
+    _deviceCache = null;
+    _sensorDeviceId = null;
+    return getSensorDeviceId();
+}
+
 // 通用POST请求
 async function apiPost(u, d) {
     try {

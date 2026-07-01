@@ -92,9 +92,11 @@ function initRealChart() {
 
 async function refreshChartData() {
     if (!realChart) return;
-    var ds = await apiGet('/api/devices');
-    if (!ds.success || !ds.data.length) return;
-    var did = ds.data[0].id;
+    var did = await getSensorDeviceId();
+    if (!did) {
+        console.warn('[Dashboard] No sensor device found, chart data skipped');
+        return;
+    }
     var d = await apiGet('/api/devices/' + did + '/data/all-recent?hours=2');
     if (!d.success) return;
     var td = (d.data.temperature || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
@@ -153,8 +155,10 @@ function initPredChart() {
 
 async function refreshPredData() {
     if (!predChart) return;
-    var t = await apiGet('/api/predictions/latest?type=temperature&predict_hours=6');
-    var h = await apiGet('/api/predictions/latest?type=humidity&predict_hours=6');
+    var did = await getSensorDeviceId();
+    if (!did) return;
+    var t = await apiGet('/api/predictions/latest?device_id=' + did + '&type=temperature&predict_hours=6');
+    var h = await apiGet('/api/predictions/latest?device_id=' + did + '&type=humidity&predict_hours=6');
     if (!t.success || !h.success) return;
     var th = (t.data.history || []).map(function (x) { return [parseTime(x.recorded_at), x.value]; });
     var tp = (t.data.predictions || []).map(function (x) { return [parseTime(x.predicted_at), x.predicted_value]; });

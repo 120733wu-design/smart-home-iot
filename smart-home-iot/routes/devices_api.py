@@ -22,6 +22,12 @@ def create_device():
     if DeviceModel.find_by_key(device_key):
         return jsonify({'success':False,'message':'设备Key已存在'}),409
     device_id = DeviceModel.create(name, device_key, device_type, location)
+    # 通知 MQTT 客户端刷新设备缓存
+    try:
+        from mqtt_client.client import _invalidate_device_cache
+        _invalidate_device_cache(device_key)
+    except Exception:
+        pass
     return jsonify({'success':True,'message':'设备创建成功','data':{'id':device_id}}),201
 
 @devices_api_bp.route('/devices/<int:device_id>', methods=['GET'])
