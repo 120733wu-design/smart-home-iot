@@ -65,7 +65,7 @@ class Predictor:
                 self.train(device_id, st)
                 key = (device_id, st)
                 if key in self.metrics:
-                    results[st] = m
+                    results[st] = self.metrics[key]
         return results
 def get_predictor():
     global _predictor

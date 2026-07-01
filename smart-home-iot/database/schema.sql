@@ -57,6 +57,18 @@ CREATE TABLE IF NOT EXISTS control_commands (
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS device_thresholds (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    device_id INT NOT NULL,
+    sensor_type ENUM('temperature','humidity','light') NOT NULL,
+    min_value DECIMAL(6,2) DEFAULT NULL,
+    max_value DECIMAL(6,2) DEFAULT NULL,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_device_sensor (device_id, sensor_type),
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS ml_predictions (
     id BIGINT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,

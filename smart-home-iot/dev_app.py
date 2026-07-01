@@ -24,6 +24,7 @@ CREATE INDEX IF NOT EXISTS idx_st ON sensor_data(device_id, sensor_type, recorde
 CREATE TABLE IF NOT EXISTS alerts (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, alert_type TEXT NOT NULL, severity TEXT DEFAULT 'warning', message TEXT NOT NULL, is_read INTEGER DEFAULT 0, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS control_commands (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, command TEXT NOT NULL, params TEXT, status TEXT DEFAULT 'pending', created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
 CREATE TABLE IF NOT EXISTS ml_predictions (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, sensor_type TEXT NOT NULL, predicted_value REAL NOT NULL, confidence REAL, predicted_at DATETIME NOT NULL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP);
+CREATE TABLE IF NOT EXISTS device_thresholds (id INTEGER PRIMARY KEY AUTOINCREMENT, device_id INTEGER NOT NULL, sensor_type TEXT NOT NULL, min_value REAL, max_value REAL, created_at DATETIME DEFAULT CURRENT_TIMESTAMP, updated_at DATETIME DEFAULT CURRENT_TIMESTAMP, UNIQUE(device_id, sensor_type));
 ''')
     conn.commit(); conn.close()
 
