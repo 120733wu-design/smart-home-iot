@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block auth_content %}
+<div class="row justify-content-center mt-5">
+    <div class="col-md-5 col-lg-4">
+        <div class="card shadow-lg border-0 rounded-4">
+            <div class="card-body p-4 p-lg-5">
+                <div class="text-center mb-4">
+                    <i class="bi bi-house-heart-fill text-primary" style="font-size:2.8rem;"></i>
+                    <h4 class="mt-3 mb-1">智能家居监测控制系统</h4>
+                    <p class="text-muted small">登录您的管理账户</p>
+                </div>
+
+                <div id="login-error" class="alert alert-danger d-none small"></div>
+
+                <form id="login-form">
+                    <div class="mb-3">
+                        <label class="form-label small">用户名</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-person"></i>
+                            </span>
+                            <input type="text" class="form-control form-control-sm" id="login-username" placeholder="请输入用户名" required>
+                        </div>
+                    </div>
+
+                    <div class="mb-4">
+                        <label class="form-label small">密码</label>
+                        <div class="input-group">
+                            <span class="input-group-text">
+                                <i class="bi bi-lock"></i>
+                            </span>
+                            <input type="password" class="form-control form-control-sm" id="login-password" placeholder="请输入密码" required>
+                            <button class="btn btn-outline-secondary btn-sm" type="button" id="toggle-pwd">
+                                <i class="bi bi-eye"></i>
+                            </button>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="btn btn-primary w-100 py-2" id="login-submit">
+                        登 录
+                    </button>
+                </form>
+
+                <div class="text-center mt-4">
+                    <small class="text-muted">还没有账户？
+                        <a href="/register" class="text-primary text-decoration-none fw-medium">立即注册</a>
+                    </small>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// 密码显示切换
+const pwdInput = document.getElementById('login-password');
+const toggleBtn = document.getElementById('toggle-pwd');
+toggleBtn.addEventListener('click', function () {
+    const icon = this.querySelector('i');
+    if (pwdInput.type === 'password') {
+        pwdInput.type = 'text';
+        icon.className = 'bi bi-eye-slash';
+    } else {
+        pwdInput.type = 'password';
+        icon.className = 'bi bi-eye';
+    }
+});
+
+// 登录表单提交
+document.getElementById('login-form').addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const errorDom = document.getElementById('login-error');
+    const submitBtn = document.getElementById('login-submit');
+    // 清空错误
+    errorDom.classList.add('d-none');
+    
+    // 去除首尾空格
+    const username = document.getElementById('login-username').value.trim();
+    const password = document.getElementById('login-password').value.trim();
+    
+    // 简易前端校验
+    if (!username || !password) {
+        errorDom.textContent = '用户名和密码不能为空';
+        errorDom.classList.remove('d-none');
+        return;
+    }
+
+    // 按钮加载状态，防止重复点击
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>登录中...';
+
+    try {
+        const res = await fetch('/login', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ username, password })
+        });
+        const data = await res.json();
+        if (data.success) {
+            window.location.href = '/dashboard';
+        } else {
+            errorDom.textContent = data.message || '账号或密码错误';
+            errorDom.classList.remove('d-none');
+        }
+    } catch (err) {
+        errorDom.textContent = '网络连接失败，请检查服务器';
+        errorDom.classList.remove('d-none');
+    } finally {
+        // 恢复按钮
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '登 录';
+    }
+});
+</script>
+{% endblock %}

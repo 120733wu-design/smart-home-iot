@@ -1,0 +1,72 @@
+{% extends "base.html" %}
+{% block page_title %}告警管理{% endblock %}
+{% block content %}
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="bi bi-exclamation-triangle me-2 text-danger"></i>告警列表
+        </h6>
+        <div>
+            <button class="btn btn-success btn-sm me-2" id="btn-mark-all-read">
+                <i class="bi bi-check-all me-1"></i>全部标记已读
+            </button>
+            <button class="btn btn-outline-secondary btn-sm" id="btn-refresh-alerts">
+                <i class="bi bi-arrow-clockwise"></i> 刷新
+            </button>
+        </div>
+    </div>
+    <div class="card-body">
+        <!-- 筛选行优化布局 -->
+        <div class="row align-items-center mb-3">
+            <div class="col-md-3 mb-2">
+                <select class="form-select form-select-sm" id="filter-severity" aria-label="按严重度筛选">
+                    <option value="">全部严重度</option>
+                    <option value="critical">严重</option>
+                    <option value="warning">警告</option>
+                    <option value="info">信息</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-2">
+                <select class="form-select form-select-sm" id="filter-device" aria-label="按设备筛选">
+                    <option value="">全部设备</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-2">
+                <select class="form-select form-select-sm" id="filter-read" aria-label="按已读状态筛选">
+                    <option value="">全部状态</option>
+                    <option value="false">未读</option>
+                    <option value="true">已读</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-2 text-md-end">
+                <span class="badge bg-danger fs-6" id="alert-count-badge">加载中...</span>
+            </div>
+        </div>
+
+        <div class="table-responsive" style="max-height:500px;overflow-y:auto;">
+            <table class="table table-hover table-sm mb-0">
+                <thead class="table-light sticky-top">
+                    <tr>
+                        <th style="width:40px">#</th>
+                        <th style="width:80px">严重度</th>
+                        <th>设备</th>
+                        <th>类型</th>
+                        <th>消息</th>
+                        <th style="width:160px">时间</th>
+                        <th style="width:100px">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="alerts-table-body">
+                    <tr>
+                        <td colspan="7" class="text-center text-muted py-4">加载中...</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/alerts.js') }}"></script>
+{% endblock %}

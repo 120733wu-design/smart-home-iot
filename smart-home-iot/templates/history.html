@@ -1,0 +1,87 @@
+{% extends "base.html" %}
+{% block page_title %}历史曲线{% endblock %}
+{% block content %}
+<div class="card mb-3">
+    <div class="card-header">
+        <h6 class="mb-0"><i class="bi bi-funnel me-2 text-primary"></i>查询条件</h6>
+    </div>
+    <div class="card-body">
+        <div class="row align-items-end">
+            <div class="col-md-2 mb-2">
+                <label class="form-label small">设备</label>
+                <select class="form-select form-select-sm" id="hist-device">
+                    <option value="">-- 选择设备 --</option>
+                </select>
+            </div>
+            <div class="col-md-2 mb-2">
+                <label class="form-label small">传感器类型</label>
+                <select class="form-select form-select-sm" id="hist-type">
+                    <option value="temperature">温度</option>
+                    <option value="humidity">湿度</option>
+                    <option value="light">光照</option>
+                </select>
+            </div>
+            <div class="col-md-3 mb-2">
+                <label class="form-label small">开始时间</label>
+                <input type="datetime-local" class="form-control form-control-sm" id="hist-start">
+            </div>
+            <div class="col-md-3 mb-2">
+                <label class="form-label small">结束时间</label>
+                <input type="datetime-local" class="form-control form-control-sm" id="hist-end">
+            </div>
+            <div class="col-md-2 mb-2">
+                <button class="btn btn-primary btn-sm w-100" id="btn-query-history">
+                    <i class="bi bi-search"></i> 查询
+                </button>
+            </div>
+        </div>
+        <div class="row mt-2">
+            <div class="col-12">
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary hist-quick" data-hours="1">最近1小时</button>
+                    <button class="btn btn-outline-secondary hist-quick" data-hours="6">最近6小时</button>
+                    <button class="btn btn-outline-secondary hist-quick active" data-hours="24">最近24小时</button>
+                    <button class="btn btn-outline-secondary hist-quick" data-hours="72">最近3天</button>
+                    <button class="btn btn-outline-secondary hist-quick" data-hours="168">最近7天</button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="card">
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <h6 class="mb-0">
+            <i class="bi bi-graph-up me-2 text-success"></i>
+            <span id="history-chart-title">温湿度历史曲线</span>
+        </h6>
+        <span class="text-muted small" id="history-data-count"></span>
+    </div>
+    <div class="card-body">
+        <!-- 新增：温湿度最值统计栏，和截图样式一致 -->
+        <div class="row mb-4 text-center">
+            <div class="col-3">
+                <div class="text-muted small">温度最高</div>
+                <div class="fs-5 fw-bold text-danger" id="stat-temp-max">--°C</div>
+            </div>
+            <div class="col-3">
+                <div class="text-muted small">温度最低</div>
+                <div class="fs-5 fw-bold text-danger" id="stat-temp-min">--°C</div>
+            </div>
+            <div class="col-3">
+                <div class="text-muted small">湿度最高</div>
+                <div class="fs-5 fw-bold text-primary" id="stat-humi-max">--%</div>
+            </div>
+            <div class="col-3">
+                <div class="text-muted small">湿度最低</div>
+                <div class="fs-5 fw-bold text-primary" id="stat-humi-min">--%</div>
+            </div>
+        </div>
+        <div id="history-chart" class="chart-container-lg"></div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/history.js') }}"></script>
+{% endblock %}
