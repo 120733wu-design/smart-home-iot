@@ -62,6 +62,14 @@ def api_outdoor_weather():
     weather_info = get_outdoor_weather(city)
     return jsonify(weather_info)
 
+# 室外天气接口别名（兼容 dashboard.js 的 /api/data/weather/outdoor 路径）
+@data_api_bp.route('/data/weather/outdoor', methods=['GET'])
+def api_outdoor_weather_alias():
+    city = request.args.get("city", "天津")
+    city = unquote(city, encoding="utf-8")
+    weather_info = get_outdoor_weather(city)
+    return jsonify(weather_info)
+
 # 分页历史数据接口
 @data_api_bp.route('/devices/<int:device_id>/data', methods=['GET'])
 def get_sensor_data(device_id):

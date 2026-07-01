@@ -33,13 +33,13 @@ def alert_stats():
     })
 
 # 全部标已读
-@alerts_api_bp.route("/alerts/read-all", methods=["POST"])
+@alerts_api_bp.route("/alerts/read-all", methods=["POST", "PUT"])
 def read_all_alerts():
     AlertModel.mark_all_read()
     return jsonify({"success": True})
 
 # 单条标已读
-@alerts_api_bp.route("/alerts/<int:alert_id>/read", methods=["POST"])
+@alerts_api_bp.route("/alerts/<int:alert_id>/read", methods=["POST", "PUT"])
 def read_single_alert(alert_id):
     AlertModel.mark_read(alert_id)
     return jsonify({"success": True})
