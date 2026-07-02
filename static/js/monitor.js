@@ -103,24 +103,29 @@ async function updateGauges() {
     } catch (e) { }
 }
 
-// 新增：加载室外天气接口，更新室外仪表盘
+// 新增：加载室外天气接口，更新室外仪表盘 + 统一时间标签
 async function updateOutdoorWeather() {
     try {
         var res = await apiGet('/api/weather/outdoor?city=' + encodeURIComponent('天津'));
         if (!res.success) {
-            document.getElementById('out-weather-desc').innerText = '获取天气失败：' + res.msg;
+            // 接口失败清空室外时间
+            document.getElementById('gauge-out-temp-time').textContent = '--';
+            document.getElementById('gauge-out-humi-time').textContent = '--';
             return;
         }
         // 更新室外仪表盘数值
         if (gaugeOutTemp) gaugeOutTemp.setOption({ series: [{ data: [{ value: res.out_temp }] }] });
         if (gaugeOutHumi) gaugeOutHumi.setOption({ series: [{ data: [{ value: res.out_humi }] }] });
-        // 更新文字信息
-        document.getElementById('out-temp-val').innerText = res.out_temp;
-        document.getElementById('out-humi-val').innerText = res.out_humi;
-        document.getElementById('out-weather-desc').innerText = res.weather_text;
-        document.getElementById('out-weather-time').innerText = res.update_time;
+
+        // 统一格式化更新时间，分别赋值两个室外卡片时间
+        const timeStr = formatTime(res.update_time);
+        document.getElementById('gauge-out-temp-time').textContent = timeStr;
+        document.getElementById('gauge-out-humi-time').textContent = timeStr;
     } catch (err) {
         console.error('室外天气加载失败', err);
+        // 异常重置时间
+        document.getElementById('gauge-out-temp-time').textContent = '--';
+        document.getElementById('gauge-out-humi-time').textContent = '--';
     }
 }
 
