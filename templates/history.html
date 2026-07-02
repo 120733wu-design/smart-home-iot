@@ -1,40 +1,43 @@
 {% extends "base.html" %}
 {% block page_title %}历史曲线{% endblock %}
+
 {% block content %}
+
 <div class="card mb-3">
     <div class="card-header">
-        <h6 class="mb-0"><i class="bi bi-funnel me-2 text-primary"></i>查询条件</h6>
+        <h6 class="mb-0">
+            <i class="bi bi-funnel me-2 text-primary"></i>查询条件
+        </h6>
     </div>
+
     <div class="card-body">
         <div class="row align-items-end">
-            <div class="col-md-2 mb-2">
+
+            <div class="col-md-3 mb-2">
                 <label class="form-label small">设备</label>
                 <select class="form-select form-select-sm" id="hist-device">
                     <option value="">-- 选择设备 --</option>
                 </select>
             </div>
-            <div class="col-md-2 mb-2">
-                <label class="form-label small">传感器类型</label>
-                <select class="form-select form-select-sm" id="hist-type">
-                    <option value="temperature">温度</option>
-                    <option value="humidity">湿度</option>
-                    <option value="light">光照</option>
-                </select>
-            </div>
+
             <div class="col-md-3 mb-2">
                 <label class="form-label small">开始时间</label>
                 <input type="datetime-local" class="form-control form-control-sm" id="hist-start">
             </div>
+
             <div class="col-md-3 mb-2">
                 <label class="form-label small">结束时间</label>
                 <input type="datetime-local" class="form-control form-control-sm" id="hist-end">
             </div>
-            <div class="col-md-2 mb-2">
+
+            <div class="col-md-3 mb-2">
                 <button class="btn btn-primary btn-sm w-100" id="btn-query-history">
                     <i class="bi bi-search"></i> 查询
                 </button>
             </div>
+
         </div>
+
         <div class="row mt-2">
             <div class="col-12">
                 <div class="btn-group btn-group-sm">
@@ -46,21 +49,48 @@
                 </div>
             </div>
         </div>
+
     </div>
 </div>
 
-<div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h6 class="mb-0">
-            <i class="bi bi-graph-up me-2 text-success"></i>
-            <span id="history-chart-title">历史曲线</span>
-        </h6>
-        <span class="text-muted small" id="history-data-count"></span>
+<!-- 三图结构 -->
+<div class="row g-3">
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-danger">
+                <i class="bi bi-thermometer-half me-1"></i>温度
+            </div>
+            <div class="card-body">
+                <div id="chart-temp" class="chart-container-lg"></div>
+            </div>
+        </div>
     </div>
-    <div class="card-body">
-        <div id="history-chart" class="chart-container-lg"></div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-primary">
+                <i class="bi bi-droplet-half me-1"></i>湿度
+            </div>
+            <div class="card-body">
+                <div id="chart-humi" class="chart-container-lg"></div>
+            </div>
+        </div>
     </div>
+
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header text-warning">
+                <i class="bi bi-sun me-1"></i>光照
+            </div>
+            <div class="card-body">
+                <div id="chart-light" class="chart-container-lg"></div>
+            </div>
+        </div>
+    </div>
+
 </div>
+
 {% endblock %}
 
 {% block scripts %}
