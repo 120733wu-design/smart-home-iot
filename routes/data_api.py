@@ -31,8 +31,7 @@ def get_outdoor_weather(city_name="天津"):
         "timezone": "Asia/Shanghai"
     }
     try:
-        resp = requests.get(WEATHER_API_URL, params=params, timeout=10)
-        resp_json = resp.json()
+        resp_json = _fetch_weather_json(params)
         current = resp_json.get("current", {})
         temp = float(current.get("temperature_2m", 0))
         humi = float(current.get("relative_humidity_2m", 0))
@@ -53,6 +52,50 @@ def get_outdoor_weather(city_name="天津"):
             "success": False,
             "msg": f"请求天气服务失败：{str(err)}"
         }
+
+
+def _fetch_weather_json(params):
+    """多策略获取天气JSON，解决Windows下Python SSL证书/DLL问题"""
+    import json as _json
+    import subprocess
+    import sys
+
+    query_str = "&".join(f"{k}={v}" for k, v in params.items())
+    full_url = f"{WEATHER_API_URL}?{query_str}"
+
+    # 策略1：requests（有可能成功）
+    try:
+        resp = requests.get(WEATHER_API_URL, params=params, timeout=10)
+        resp.raise_for_status()
+        return resp.json()
+    except Exception:
+        pass
+
+    # 策略2：urllib（无requests依赖）
+    try:
+        import urllib.request
+        import ssl as _ssl
+        ctx = _ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = _ssl.CERT_NONE
+        req = urllib.request.Request(full_url)
+        with urllib.request.urlopen(req, timeout=10, context=ctx) as fp:
+            return _json.loads(fp.read().decode("utf-8"))
+    except Exception:
+        pass
+
+    # 策略3：系统 curl（Windows Git Bash 自带，SSL 链路正常）
+    try:
+        cp = subprocess.run(
+            ["curl", "-s", "--connect-timeout", "10", full_url],
+            capture_output=True, text=True, timeout=15
+        )
+        if cp.returncode == 0 and cp.stdout.strip():
+            return _json.loads(cp.stdout)
+    except Exception:
+        pass
+
+    raise RuntimeError("所有天气请求方式均失败")
 
 # 室外天气接口
 @data_api_bp.route('/weather/outdoor', methods=['GET'])
