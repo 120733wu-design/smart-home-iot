@@ -19,8 +19,32 @@ class UserModel:
 
     @staticmethod
     def list_all():
-        sql = "SELECT id, username, role, created_at FROM users ORDER BY created_at DESC"
+        sql = "SELECT id, username, role, face_enabled, created_at FROM users ORDER BY created_at DESC"
         return query(sql)
+
+    @staticmethod
+    def count():
+        r = query("SELECT COUNT(*) as cnt FROM users", fetchone=True)
+        return r['cnt'] if r else 0
+
+    @staticmethod
+    def delete(user_id):
+        """删除用户（不允许删除最后一个admin）"""
+        admin_count = query("SELECT COUNT(*) as cnt FROM users WHERE role='admin'", fetchone=True)
+        user = UserModel.find_by_id(user_id)
+        if user and user.get('role') == 'admin' and admin_count and admin_count['cnt'] <= 1:
+            return False  # 不允许删除最后一个管理员
+        return execute("DELETE FROM users WHERE id = %s", (user_id,))
+
+    @staticmethod
+    def update_role(user_id, role):
+        if role not in ('admin', 'user'):
+            return False
+        return execute("UPDATE users SET role = %s WHERE id = %s", (role, user_id))
+
+    @staticmethod
+    def update_password(user_id, password_hash):
+        return execute("UPDATE users SET password_hash = %s WHERE id = %s", (password_hash, user_id))
 
     # ========== 人脸特征 — face_feature TEXT (JSON) ==========
     # 单账号仅存储一组人脸特征，重复录入自动覆盖

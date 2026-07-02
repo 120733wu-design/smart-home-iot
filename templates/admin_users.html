@@ -1,0 +1,140 @@
+{% extends "base.html" %}
+{% block page_title %}用户管理{% endblock page_title %}
+{% block content %}
+<div class="row mb-3">
+    <div class="col-12">
+        <h4 class="fw-bold"><i class="bi bi-people-fill me-2 text-primary"></i>用户管理</h4>
+        <p class="text-muted small mb-0">管理系统用户账号，包括角色分配、密码重置和账号删除</p>
+    </div>
+</div>
+
+<!-- 统计卡片 -->
+<div class="row mb-4" id="stats-row">
+    <div class="col-md-4 mb-3">
+        <div class="card border-0 shadow-sm border-start border-primary border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted small mb-1">用户总数</h6>
+                        <h3 class="fw-bold mb-0" id="stat-total">-</h3>
+                    </div>
+                    <i class="bi bi-people text-primary" style="font-size:2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card border-0 shadow-sm border-start border-success border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted small mb-1">管理员</h6>
+                        <h3 class="fw-bold mb-0" id="stat-admin">-</h3>
+                    </div>
+                    <i class="bi bi-shield-check text-success" style="font-size:2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+    <div class="col-md-4 mb-3">
+        <div class="card border-0 shadow-sm border-start border-info border-4">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-center">
+                    <div>
+                        <h6 class="text-muted small mb-1">普通用户</h6>
+                        <h3 class="fw-bold mb-0" id="stat-user">-</h3>
+                    </div>
+                    <i class="bi bi-person text-info" style="font-size:2rem;"></i>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 用户列表 -->
+<div class="row">
+    <div class="col-12">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white border-bottom py-3 d-flex justify-content-between align-items-center">
+                <h6 class="mb-0 fw-bold"><i class="bi bi-table me-2 text-primary"></i>用户列表</h6>
+                <button class="btn btn-sm btn-outline-primary" id="btn-refresh" title="刷新列表">
+                    <i class="bi bi-arrow-clockwise me-1"></i>刷新
+                </button>
+            </div>
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th class="ps-4">#</th>
+                                <th>用户名</th>
+                                <th>角色</th>
+                                <th>人脸登录</th>
+                                <th>注册时间</th>
+                                <th class="text-end pe-4">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody id="user-table-body">
+                            <tr>
+                                <td colspan="6" class="text-center text-muted py-5">
+                                    <div class="spinner-border text-primary mb-2" role="status"></div>
+                                    <p>正在加载用户列表...</p>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 角色修改确认模态框 -->
+<div class="modal fade" id="roleModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">修改用户角色</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="mb-3">将 <strong id="role-username"></strong> 的角色修改为：</p>
+                <select class="form-select" id="role-select">
+                    <option value="user">普通用户 (user)</option>
+                    <option value="admin">管理员 (admin)</option>
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-primary btn-sm" id="btn-confirm-role">确认修改</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 删除确认模态框 -->
+<div class="modal fade" id="deleteModal" tabindex="-1">
+    <div class="modal-dialog modal-sm">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h6 class="modal-title">确认删除</h6>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p class="text-danger mb-0">
+                    <i class="bi bi-exclamation-triangle-fill me-2"></i>
+                    确定要删除用户 <strong id="delete-username"></strong> 吗？此操作不可撤销。
+                </p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">取消</button>
+                <button type="button" class="btn btn-danger btn-sm" id="btn-confirm-delete">确认删除</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock content %}
+
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/admin_users.js') }}"></script>
+{% endblock scripts %}

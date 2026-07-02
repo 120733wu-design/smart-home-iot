@@ -19,6 +19,10 @@ def create_app(config_class=Config):
     from routes.threshold_api import threshold_bp
     # 新增：导入YOLOv5检测蓝图
     from routes.yolo_api import yolo_bp
+    # 新增：导入远程控制蓝图
+    from routes.control_api import control_api_bp
+    # 新增：导入管理员蓝图
+    from routes.admin_api import admin_bp
 
     # 注册蓝图：auth、页面类无/api前缀；接口统一/api
     app.register_blueprint(pages_bp)
@@ -29,6 +33,8 @@ def create_app(config_class=Config):
     app.register_blueprint(alerts_api_bp, url_prefix='/api')
     app.register_blueprint(predictions_api_bp, url_prefix='/api')
     app.register_blueprint(yolo_bp, url_prefix='/yolo')
+    app.register_blueprint(control_api_bp, url_prefix='/api')
+    app.register_blueprint(admin_bp, url_prefix='/api')
 
     # 避免 favicon.ico 404
     @app.route('/favicon.ico')

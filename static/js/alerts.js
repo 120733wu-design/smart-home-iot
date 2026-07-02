@@ -85,7 +85,7 @@ async function markRead(id){
 }
 
 async function markAllRead(){
-    var r=await apiPut('/api/alerts/read-all');
+    var r=await apiPost('/api/alerts/read-all');
     if(r.success){
         showToast(r.message,'success');
         loadAlerts();

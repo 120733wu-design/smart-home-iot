@@ -75,7 +75,7 @@ def on_message(client, userdata, msg):
             from models.sensor_data import SensorDataModel
             # 关键：sensor_data 也改用Python本地时间入库，和告警完全同源
             now_cst = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-            SensorDataModel.insert(did, sensor_type, value, now_cst)
+            SensorDataModel.insert(did, sensor_type, value, recorded_at=now_cst)
             print(f"[MQTT] 入库成功 设备:{device_key} 传感器:{sensor_type} 值:{value}")
             if device['status'] != 'online':
                 DeviceModel.set_status(did, "online")
@@ -173,13 +173,28 @@ def start_mqtt():
     threading.Thread(target=_run, daemon=True).start()
 
 def publish_control(device_key, command, params=None):
+    """下发控制命令到设备，自动生成 command_id 并写入数据库"""
     global _mqtt_client
     if _mqtt_client is None:
-        return False
-    payload = json.dumps({'command':command,'params':params or {},'timestamp':time.time()})
+        return None
+    # 先在数据库中创建命令记录
+    from models.command import CommandModel
+    cmd_id = CommandModel.create_with_key(device_key, command, params)
+    payload = json.dumps({
+        'command': command,
+        'command_id': cmd_id,
+        'params': params or {},
+        'timestamp': time.time()
+    })
     topic = f"{Config.MQTT_TOPIC_PREFIX}/{device_key}/control"
-    result = _mqtt_client.publish(topic, qos=1)
-    return result.rc == 0
+    try:
+        result = _mqtt_client.publish(topic, payload, qos=1)
+        if result.rc == 0:
+            return cmd_id
+        return None
+    except Exception as e:
+        print(f"[MQTT] publish_control error: {e}")
+        return None
 # 新增：通用MQTT发布，任意主题
 def publish_raw(topic, payload):
     global _mqtt_client

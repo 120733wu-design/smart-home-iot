@@ -33,6 +33,12 @@
             <a href="{{ url_for('threshold.index') }}" class="list-group-item list-group-item-action {{'active' if request.endpoint == 'threshold.index' else ''}}">
                 <i class="bi bi-sliders me-2"></i>阈值配置
             </a>
+            <a href="/control" class="list-group-item list-group-item-action {{'active' if request.path=='/control' else ''}}">
+                <i class="bi bi-sliders2-vertical me-2"></i>远程控制
+            </a>
+            <a href="/admin/users" class="list-group-item list-group-item-action {{'active' if request.path=='/admin/users' else ''}}">
+                <i class="bi bi-people-fill me-2"></i>用户管理
+            </a>
             <a href="/alerts" class="list-group-item list-group-item-action {{'active' if request.path=='/alerts' else ''}}">
                 <i class="bi bi-exclamation-triangle me-2"></i>告警管理
             </a>

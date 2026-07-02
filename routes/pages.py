@@ -52,3 +52,13 @@ def prediction():
 def face_setup():
     if not _auth(): return redirect(url_for('pages.login_page'))
     return render_template('face_setup.html')
+
+@pages_bp.route('/control')
+def control():
+    if not _auth(): return redirect(url_for('pages.login_page'))
+    return render_template('control.html')
+
+@pages_bp.route('/admin/users')
+def admin_users():
+    if not _auth(): return redirect(url_for('pages.login_page'))
+    return render_template('admin_users.html')
