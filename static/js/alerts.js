@@ -79,9 +79,9 @@ function renderAlerts(alerts){
 }
 
 async function markRead(id){
-    await apiPut('/api/alerts/'+id+'/read');
+    await apiPost('/api/alerts/'+id+'/read');
     loadAlerts();
-    loadAlertBadge()
+    refreshAlertBadge()
 }
 
 async function markAllRead(){
@@ -89,7 +89,7 @@ async function markAllRead(){
     if(r.success){
         showToast(r.message,'success');
         loadAlerts();
-        loadAlertBadge()
+        refreshAlertBadge()
     }
 }
 
@@ -97,5 +97,18 @@ async function deleteAlert(id){
     if(!confirm('确定要删除这条告警吗？'))return;
     await apiDelete('/api/alerts/'+id);
     loadAlerts();
-    loadAlertBadge()
+    refreshAlertBadge()
+}
+
+async function refreshAlertBadge() {
+    var badge = document.getElementById('alert-badge');
+    if (!badge) return;
+    try {
+        var res = await apiGet('/api/alerts/stats');
+        if (res.success) {
+            var count = res.unread || 0;
+            badge.textContent = count;
+            badge.style.display = count > 0 ? 'inline-block' : 'none';
+        }
+    } catch(e) {}
 }
