@@ -13,10 +13,6 @@ class Config:
     MYSQL_PASSWORD = os.environ.get('MYSQL_PASSWORD', '1207yiwu')
     MYSQL_DB = os.environ.get('MYSQL_DB', 'smart_home')
 
-    # SQLite 开发库：云端强制关闭，使用MySQL
-    USE_SQLITE = os.environ.get('USE_SQLITE', 'False') == 'True'
-    SQLITE_DB_PATH = os.path.join(os.path.dirname(__file__), 'dev.db')
-
     # MQTT Broker：ESP硬件连阿里云公网EMQX 182.92.86.89
     # 本地开发如需使用本地EMQX，设置环境变量 MQTT_BROKER_HOST=127.0.0.1
     MQTT_BROKER_HOST = os.environ.get('MQTT_BROKER_HOST', '182.92.86.89')

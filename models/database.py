@@ -1,18 +1,9 @@
 import pymysql
-import sqlite3
 import os
-from datetime import datetime
 from config import Config
 
 def get_db(config=None):
     cfg = config or Config
-    if getattr(cfg, 'USE_SQLITE', False):
-        db_path = getattr(cfg, 'SQLITE_DB_PATH', None) or os.path.join(os.path.dirname(__file__), '..', 'dev.db')
-        conn = sqlite3.connect(db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute("PRAGMA journal_mode=WAL")
-        conn.execute("PRAGMA foreign_keys=ON")
-        return conn
     try:
         conn = pymysql.connect(host=cfg.MYSQL_HOST, port=cfg.MYSQL_PORT, user=cfg.MYSQL_USER,
             password=cfg.MYSQL_PASSWORD, database=cfg.MYSQL_DB, charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
@@ -29,8 +20,6 @@ def migrate_db(config=None):
     使用 try/except 逐一 ADD COLUMN，列已存在时忽略 Duplicate column 错误。
     """
     cfg = config or Config
-    if getattr(cfg, 'USE_SQLITE', False):
-        return
     conn = None
     try:
         conn = pymysql.connect(host=cfg.MYSQL_HOST, port=cfg.MYSQL_PORT, user=cfg.MYSQL_USER,
@@ -72,12 +61,6 @@ def migrate_db(config=None):
 
 def init_db(config=None):
     cfg = config or Config
-    if getattr(cfg, 'USE_SQLITE', False):
-        import sqlite3
-        db_path = getattr(cfg, 'SQLITE_DB_PATH', None) or os.path.join(os.path.dirname(__file__), '..', 'dev.db')
-        conn = sqlite3.connect(db_path)
-        conn.execute("PRAGMA foreign_keys=ON")
-        return conn
     conn = pymysql.connect(host=cfg.MYSQL_HOST, port=cfg.MYSQL_PORT, user=cfg.MYSQL_USER,
         password=cfg.MYSQL_PASSWORD, charset='utf8mb4', cursorclass=pymysql.cursors.DictCursor)
     try:
@@ -102,21 +85,12 @@ def query(sql, params=None, config=None, fetchone=False):
     conn = get_db(config)
     try:
         cursor = conn.cursor()
-        if isinstance(conn, sqlite3.Connection):
-            sql = sql.replace('%s', '?')
         cursor.execute(sql, params or ())
         if fetchone:
             result = cursor.fetchone()
-            return dict(result) if result else None
+            return result if result else None
         rows = cursor.fetchall()
-        result = [dict(r) for r in rows]
-        if isinstance(conn, sqlite3.Connection):
-            for row in result:
-                for k, v in row.items():
-                    if isinstance(v, str) and len(v) == 19 and v[4] == '-' and v[7] == '-':
-                        try: row[k] = datetime.strptime(v, '%Y-%m-%d %H:%M:%S')
-                        except: pass
-        return result
+        return rows
     finally:
         close_db(conn)
 
@@ -124,8 +98,6 @@ def execute(sql, params=None, config=None, return_id=False):
     conn = get_db(config)
     try:
         cursor = conn.cursor()
-        if isinstance(conn, sqlite3.Connection):
-            sql = sql.replace('%s', '?')
         cursor.execute(sql, params or ())
         conn.commit()
         if return_id: return cursor.lastrowid

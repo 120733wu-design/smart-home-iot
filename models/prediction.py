@@ -1,5 +1,4 @@
 from models.database import query, execute, get_db
-import sqlite3
 from datetime import datetime, timedelta
 class PredictionModel:
     @staticmethod
@@ -16,8 +15,6 @@ class PredictionModel:
             conn = get_db()
             cursor = conn.cursor()
             sql = "INSERT INTO ml_predictions (device_id, sensor_type, predicted_value, confidence, predicted_at, created_at) VALUES (%s, %s, %s, %s, %s, %s)"
-            if isinstance(conn, sqlite3.Connection):
-                sql = sql.replace("%s", "?")
             cursor.executemany(sql, predictions)
             conn.commit()
             return cursor.rowcount
