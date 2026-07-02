@@ -14,7 +14,7 @@ class PredictionModel:
         try:
             conn = get_db()
             cursor = conn.cursor()
-            sql = "INSERT INTO ml_predictions (device_id, sensor_type, predicted_value, confidence, predicted_at, created_at) VALUES (%s, %s, %s, %s, %s, %s)"
+            sql = "INSERT INTO ml_predictions (device_id, sensor_type, predicted_value, confidence, predicted_at) VALUES (%s, %s, %s, %s, %s)"
             cursor.executemany(sql, predictions)
             conn.commit()
             return cursor.rowcount
