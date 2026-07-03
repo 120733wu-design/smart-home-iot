@@ -38,6 +38,15 @@ CREATE TABLE IF NOT EXISTS sensor_data (
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS buzzer_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    device_id INT NOT NULL,
+    mode ENUM('auto','manual','mute') DEFAULT 'auto',
+    manual_state TINYINT(1) DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS alerts (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
@@ -49,6 +58,15 @@ CREATE TABLE IF NOT EXISTS alerts (
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
+CREATE TABLE IF NOT EXISTS buzzer_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    device_id INT NOT NULL,
+    mode ENUM('auto','manual','mute') DEFAULT 'auto',
+    manual_state TINYINT(1) DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
 CREATE TABLE IF NOT EXISTS control_commands (
     id INT AUTO_INCREMENT PRIMARY KEY,
     device_id INT NOT NULL,
@@ -56,6 +74,15 @@ CREATE TABLE IF NOT EXISTS control_commands (
     params JSON DEFAULT NULL,
     status ENUM('pending','sent','acknowledged','failed') DEFAULT 'pending',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+CREATE TABLE IF NOT EXISTS buzzer_config (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    device_id INT NOT NULL,
+    mode ENUM('auto','manual','mute') DEFAULT 'auto',
+    manual_state TINYINT(1) DEFAULT 0,
+    updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 

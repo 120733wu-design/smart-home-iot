@@ -21,6 +21,8 @@ def create_app(config_class=Config):
     from routes.yolo_api import yolo_bp
     # 新增：导入远程控制蓝图
     from routes.control_api import control_api_bp
+    # 新增：蜂鸣器控制蓝图
+    from routes.buzzer_api import buzzer_api_bp
     # 新增：导入管理员蓝图
     from routes.admin_api import admin_bp
 
@@ -34,6 +36,7 @@ def create_app(config_class=Config):
     app.register_blueprint(predictions_api_bp, url_prefix='/api')
     app.register_blueprint(yolo_bp, url_prefix='/yolo')
     app.register_blueprint(control_api_bp, url_prefix='/api')
+    app.register_blueprint(buzzer_api_bp, url_prefix='/api')
     app.register_blueprint(admin_bp, url_prefix='/api')
 
     # 避免 favicon.ico 404

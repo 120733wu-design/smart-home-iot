@@ -6,7 +6,7 @@
         <div class="card shadow-sm rounded-4">
             <div class="card-header">
                 <h6 class="mb-0">
-                    <i class="bi bi-sliders me-2 text-primary"></i>设备温湿度阈值配置
+                    <i class="bi bi-sliders me-2 text-primary"></i>设备温湿度阈值 & 蜂鸣器控制
                 </h6>
             </div>
             <div class="card-body">
@@ -16,6 +16,49 @@
                     <select class="form-select" id="sel-device">
                         <option value="">-- 请选择设备 --</option>
                     </select>
+                </div>
+
+                <!-- 蜂鸣器三模式控制 -->
+                <div class="card border-warning mb-4">
+                    <div class="card-header bg-warning bg-opacity-10 border-warning d-flex justify-content-between align-items-center">
+                        <span class="fw-bold text-warning"><i class="bi bi-volume-up me-2"></i>蜂鸣器控制</span>
+                        <span class="badge fs-6" id="buzzer-status-badge">--</span>
+                    </div>
+                    <div class="card-body">
+                        <div class="row g-2 text-center">
+                            <div class="col-4">
+                                <div class="card mode-card border-primary" id="card-auto" data-mode="auto" style="cursor:pointer;">
+                                    <div class="card-body py-3">
+                                        <i class="bi bi-cpu fs-3 text-primary d-block mb-1"></i>
+                                        <strong class="text-primary">Auto 自动</strong>
+                                        <small class="d-block text-muted">超标自动触发</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card mode-card" id="card-manual" data-mode="manual" style="cursor:pointer;">
+                                    <div class="card-body py-3">
+                                        <i class="bi bi-hand-index-thumb fs-3 text-warning d-block mb-1"></i>
+                                        <strong class="text-warning">Manual 手动</strong>
+                                        <small class="d-block text-muted">按钮控制</small>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-4">
+                                <div class="card mode-card" id="card-mute" data-mode="mute" style="cursor:pointer;">
+                                    <div class="card-body py-3">
+                                        <i class="bi bi-volume-mute fs-3 text-secondary d-block mb-1"></i>
+                                        <strong class="text-secondary">Mute 静音</strong>
+                                        <small class="d-block text-muted">强制关闭</small>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div id="manual-btns" class="text-center mt-3" style="display:none;">
+                            <button class="btn btn-success btn-lg me-2" id="btn-buzzer-on"><i class="bi bi-volume-up me-1"></i>开</button>
+                            <button class="btn btn-danger btn-lg" id="btn-buzzer-off"><i class="bi bi-volume-mute me-1"></i>关</button>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- 温度阈值 -->
@@ -62,40 +105,101 @@
 {% block scripts %}
 <script>
 let deviceList = [];
+let currentMode = 'auto';
+let currentDeviceKey = '';
+
 const selDevice = document.getElementById('sel-device');
-// 加载设备下拉
+
+// ===== 加载设备 =====
 async function loadDeviceList() {
     const res = await apiGet('/api/devices');
     if (!res.success) return;
     deviceList = res.data;
     selDevice.innerHTML = '<option value="">-- 请选择设备 --</option>';
     deviceList.forEach(item => {
-        selDevice.innerHTML += `<option value="${item.id}">${item.name} (${item.location || '无位置'})</option>`;
-    })
+        selDevice.innerHTML += `<option value="${item.id}" data-key="${item.device_key}">${item.name} (${item.location || '无位置'})</option>`;
+    });
 }
 
-// 切换设备自动加载已有阈值
+// ===== 加载蜂鸣器状态 =====
+async function loadBuzzerStatus() {
+    if (!currentDeviceKey) return;
+    try {
+        const res = await apiGet('/api/buzzer/config?device_key=' + currentDeviceKey);
+        if (res.success && res.data) {
+            currentMode = res.data.mode || 'auto';
+            updateBuzzerUI();
+        }
+    } catch(e) {}
+}
+
+// ===== 更新蜂鸣器UI =====
+function updateBuzzerUI() {
+    const badge = document.getElementById('buzzer-status-badge');
+    const labels = { auto: 'Auto 自动', manual: 'Manual 手动', mute: 'Mute 静音' };
+    const colors = { auto: 'bg-primary', manual: 'bg-warning text-dark', mute: 'bg-secondary' };
+    badge.textContent = labels[currentMode] || currentMode;
+    badge.className = 'badge fs-6 ' + (colors[currentMode] || 'bg-secondary');
+
+    ['auto','manual','mute'].forEach(m => {
+        const card = document.getElementById('card-' + m);
+        if (m === currentMode) card.classList.add('border-2','border-primary');
+        else card.classList.remove('border-2','border-primary');
+    });
+
+    document.getElementById('manual-btns').style.display = (currentMode === 'manual') ? '' : 'none';
+}
+
+// ===== 设置模式 =====
+async function setBuzzerMode(mode) {
+    if (!currentDeviceKey) return showToast('请先选择设备', 'warning');
+    try {
+        const res = await apiPut('/api/buzzer/mode', { device_key: currentDeviceKey, mode: mode });
+        if (res.success) {
+            currentMode = mode;
+            updateBuzzerUI();
+            showToast('蜂鸣器: ' + mode, 'success');
+        } else {
+            showToast(res.message || '失败', 'danger');
+        }
+    } catch(e) { showToast('请求失败', 'danger'); }
+}
+
+// ===== 手动触发 =====
+async function triggerBuzzer(state) {
+    if (!currentDeviceKey) return;
+    try {
+        const res = await apiPost('/api/buzzer/trigger', { device_key: currentDeviceKey, state: state });
+        if (res.success) showToast(state ? '蜂鸣器 开' : '蜂鸣器 关', 'success');
+        else showToast(res.message, 'danger');
+    } catch(e) { showToast('请求失败', 'danger'); }
+}
+
+['auto','manual','mute'].forEach(m => {
+    document.getElementById('card-' + m).addEventListener('click', () => setBuzzerMode(m));
+});
+document.getElementById('btn-buzzer-on').addEventListener('click', () => triggerBuzzer(1));
+document.getElementById('btn-buzzer-off').addEventListener('click', () => triggerBuzzer(0));
+
+// ===== 切换设备 =====
 selDevice.addEventListener('change', async () => {
     const did = selDevice.value;
-    if (!did) {
-        clearInput();
-        return;
-    }
-    // 加载温度阈值
+    currentDeviceKey = selDevice.selectedOptions[0]?.dataset?.key || '';
+    if (!did) { clearInput(); return; }
+    // 加载阈值
     const tempRes = await apiGet(`/api/threshold/${did}/temperature`);
     if (tempRes.success && tempRes.data) {
         document.getElementById('temp-min').value = tempRes.data.min_value ?? '';
         document.getElementById('temp-max').value = tempRes.data.max_value ?? '';
     }
-    // 加载湿度阈值
     const humiRes = await apiGet(`/api/threshold/${did}/humidity`);
     if (humiRes.success && humiRes.data) {
         document.getElementById('humi-min').value = humiRes.data.min_value ?? '';
         document.getElementById('humi-max').value = humiRes.data.max_value ?? '';
     }
-})
+    loadBuzzerStatus();
+});
 
-// 清空输入框
 function clearInput() {
     document.getElementById('temp-min').value = '';
     document.getElementById('temp-max').value = '';
@@ -103,37 +207,29 @@ function clearInput() {
     document.getElementById('humi-max').value = '';
 }
 
-// 保存温度阈值
 document.getElementById('save-temp').addEventListener('click', async () => {
     const did = selDevice.value;
     if (!did) return showToast('请先选择设备', 'danger');
-    const min = document.getElementById('temp-min').value || null;
-    const max = document.getElementById('temp-max').value || null;
     const res = await apiPost('/api/threshold/save', {
-        device_id: did,
-        sensor_type: 'temperature',
-        min_value: min,
-        max_value: max
-    })
+        device_id: did, sensor_type: 'temperature',
+        min_value: document.getElementById('temp-min').value || null,
+        max_value: document.getElementById('temp-max').value || null
+    });
     if (res.success) showToast('温度阈值保存成功', 'success');
     else showToast('保存失败', 'danger');
-})
+});
 
-// 保存湿度阈值
 document.getElementById('save-humi').addEventListener('click', async () => {
     const did = selDevice.value;
     if (!did) return showToast('请先选择设备', 'danger');
-    const min = document.getElementById('humi-min').value || null;
-    const max = document.getElementById('humi-max').value || null;
     const res = await apiPost('/api/threshold/save', {
-        device_id: did,
-        sensor_type: 'humidity',
-        min_value: min,
-        max_value: max
-    })
+        device_id: did, sensor_type: 'humidity',
+        min_value: document.getElementById('humi-min').value || null,
+        max_value: document.getElementById('humi-max').value || null
+    });
     if (res.success) showToast('湿度阈值保存成功', 'success');
     else showToast('保存失败', 'danger');
-})
+});
 
 document.addEventListener('DOMContentLoaded', loadDeviceList);
 </script>

@@ -114,12 +114,26 @@ def on_message(client, userdata, msg):
                         now_str = now_cst.strftime("%Y-%m-%d %H:%M:%S")
                         AlertModel.create(did, "threshold", sev, alert_msg, now_str)
                         print(f"[MQTT] 生成阈值告警：{alert_msg}")
+
+                        # 蜂鸣器 auto 模式：阈值超标时自动触发蜂鸣器
+                        buzzer_cfg = BuzzerModel.get_by_device_key(device_key)
+                        if buzzer_cfg and buzzer_cfg.get('mode') == 'auto':
+                            # 双协议下发: JSON 协议到 device/buzzer/control
+                            publish_buzzer(device_key, 'auto', 'on')
+                            print(f"[MQTT] 蜂鸣器(auto) 触发 → {device_key}")
             # ==========================================================
 
         elif sub_topic == 'status':
             try:
                 sd = json.loads(payload)
                 DeviceModel.set_status(did, sd.get('status', 'online'))
+                buzzer_mode = sd.get('buzzer_mode')
+                if buzzer_mode:
+                    from models.buzzer import BuzzerModel
+                    BuzzerModel.ensure_exists(did)
+                    buzzer_cfg = BuzzerModel.get_or_create(did)
+                    if buzzer_cfg.get('mode') != buzzer_mode:
+                        BuzzerModel.set_mode(did, buzzer_mode)
             except Exception as e:
                 print(f"[MQTT] status解析失败: {e}")
 
@@ -144,12 +158,17 @@ def start_mqtt():
     # 确保已知硬件设备在数据库中存在，避免 MQTT 数据被丢弃
     try:
         from models.device import DeviceModel
-        known_keys = ['esp8266-001']
+        from models.buzzer import BuzzerModel
+        known_keys = ['esp8266-001', 'esp8266-screen-001-0626']
         for k in known_keys:
             dev = DeviceModel.find_by_key(k)
             if not dev or not dev.get('id'):
-                DeviceModel.create(name='ESP8266客厅环境监测器', device_key=k, type='sensor', location='客厅')
-                print(f"[MQTT] 自动注册设备 key={k}")
+                name = 'ESP8266屏幕版' if 'screen' in k else 'ESP8266客厅环境监测器'
+                did = DeviceModel.create(name=name, device_key=k, type='sensor', location='客厅')
+                print(f"[MQTT] 自动注册设备 key={k} id={did}")
+                BuzzerModel.ensure_exists(did)
+            else:
+                BuzzerModel.ensure_exists(dev['id'])
     except Exception as e:
         print(f"[MQTT] 自动注册设备失败: {e}")
 
@@ -195,6 +214,23 @@ def publish_control(device_key, command, params=None):
     except Exception as e:
         print(f"[MQTT] publish_control error: {e}")
         return None
+
+def publish_buzzer(device_key, mode, buzzer_state='off'):
+    """蜂鸣器MQTT下发 — JSON协议: {mode, buzzer} → device/buzzer/control"""
+    global _mqtt_client
+    if _mqtt_client is None:
+        print("[MQTT] publish_buzzer: MQTT not connected")
+        return False
+    payload = json.dumps({'mode': mode, 'buzzer': buzzer_state})
+    topic = f"{Config.MQTT_TOPIC_PREFIX}/buzzer/control"
+    try:
+        result = _mqtt_client.publish(topic, payload, qos=1)
+        print(f"[MQTT] publish_buzzer -> {topic} | {payload}")
+        return result.rc == 0
+    except Exception as e:
+        print(f"[MQTT] publish_buzzer error: {e}")
+        return False
+
 # 新增：通用MQTT发布，任意主题
 def publish_raw(topic, payload):
     global _mqtt_client

@@ -58,6 +58,11 @@ def control():
     if not _auth(): return redirect(url_for('pages.login_page'))
     return render_template('control.html')
 
+@pages_bp.route('/buzzer')
+def buzzer():
+    if not _auth(): return redirect(url_for('pages.login_page'))
+    return render_template('buzzer.html')
+
 @pages_bp.route('/admin/users')
 def admin_users():
     if not _auth(): return redirect(url_for('pages.login_page'))
