@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS ml_predictions (
     predicted_value DECIMAL(10,2) NOT NULL,
     confidence DECIMAL(5,2) DEFAULT NULL,
     predicted_at DATETIME NOT NULL,
+    model_type ENUM('linear_regression','random_forest') DEFAULT 'linear_regression',
     created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;

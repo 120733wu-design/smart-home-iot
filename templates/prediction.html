@@ -6,7 +6,7 @@
     <div class="col-md-4 mb-3">
         <div class="card h-100 shadow-sm rounded-4">
             <div class="card-body text-center">
-                <h6 class="text-muted mb-1">模型评估指标</h6>
+                <h6 class="text-muted mb-1">模型评估指标 <small id="metric-model-type" class="text-primary"></small></h6>
                 <div id="metric-cards">
                     <div class="row mt-3 g-2">
                         <div class="col-4">
@@ -48,20 +48,27 @@
             </div>
             <div class="card-body">
                 <div class="row g-2">
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label small">设备</label>
                         <select class="form-select form-select-sm" id="pred-device">
                             <option value="">-- 选择设备 --</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
                         <label class="form-label small">传感器类型</label>
                         <select class="form-select form-select-sm" id="pred-type">
                             <option value="temperature">温度预测</option>
                             <option value="humidity">湿度预测</option>
                         </select>
                     </div>
-                    <div class="col-md-4">
+                    <div class="col-md-3">
+                        <label class="form-label small">预测模型</label>
+                        <select class="form-select form-select-sm" id="pred-model">
+                            <option value="linear_regression">线性回归</option>
+                            <option value="random_forest">随机森林</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3">
                         <label class="form-label small">预测时长</label>
                         <select class="form-select form-select-sm" id="pred-hours">
                             <option value="3">未来 3 小时</option>

@@ -63,6 +63,9 @@ if __name__ == '__main__':
     from ml.predictor import init_scheduler
     init_scheduler(app)
 
+    from ml.random_forest_predictor import init_rf_scheduler
+    init_rf_scheduler(app)
+
     if Config.MOCK_DATA_ENABLED:
         try:
             from mock_data import start_mock_data

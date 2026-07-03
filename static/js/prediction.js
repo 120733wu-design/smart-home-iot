@@ -12,10 +12,18 @@ document.addEventListener('DOMContentLoaded', function () {
         }
     });
     document.getElementById('pred-type').addEventListener('change', loadPredictionData);
+    document.getElementById('pred-model').addEventListener('change', function () {
+        loadPredictionData();
+        loadMetrics();
+    });
     document.getElementById('pred-hours').addEventListener('change', loadPredictionData);
     // 每分钟自动刷新
     setInterval(loadPredictionData, 60000);
 });
+
+function getModelType() {
+    return document.getElementById('pred-model').value || 'linear_regression';
+}
 
 // 统一时区修复：数据库时间字符串强制东八区CST
 function getCSTDate(rawStr) {
@@ -42,11 +50,13 @@ async function runPrediction() {
     btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>预测中...';
     try {
         var did = document.getElementById('pred-device').value;
+        var mt = getModelType();
         var r = await apiPost('/api/predictions/generate', {
-            device_id: did ? parseInt(did) : null
+            device_id: did ? parseInt(did) : null,
+            model_type: mt
         });
         if (r.success) {
-            showToast('预测完成', 'success');
+            showToast('预测完成 (' + (mt === 'random_forest' ? '随机森林' : '线性回归') + ')', 'success');
             loadPredictionData();
             loadMetrics();
         } else {
@@ -65,8 +75,9 @@ async function loadPredictionData() {
     if (!did) return;
     var ty = document.getElementById('pred-type').value;
     var h = document.getElementById('pred-hours').value;
+    var mt = getModelType();
     try {
-        var d = await apiGet('/api/predictions/latest?device_id=' + did + '&type=' + ty + '&history_hours=6&predict_hours=' + h);
+        var d = await apiGet('/api/predictions/latest?device_id=' + did + '&type=' + ty + '&history_hours=6&predict_hours=' + h + '&model_type=' + mt);
         if (!d.success) return;
         updateChart(d.data, ty);
         updateTable(d.data.predictions);
@@ -181,13 +192,15 @@ function updateTable(p) {
 async function loadMetrics() {
     var did = document.getElementById('pred-device').value;
     if (!did) return;
+    var mt = getModelType();
     try {
-        var d = await apiGet('/api/predictions/accuracy?device_id=' + did);
+        var d = await apiGet('/api/predictions/accuracy?device_id=' + did + '&model_type=' + mt);
         if (!d.success) return;
         var m = d.data.temperature;
         document.getElementById('metric-rmse').textContent = m ? m.rmse : '--';
         document.getElementById('metric-mae').textContent = m ? m.mae : '--';
         document.getElementById('metric-r2').textContent = m ? m.r2 : '--';
+        document.getElementById('metric-model-type').textContent = mt === 'random_forest' ? '(随机森林)' : '(线性回归)';
     } catch (e) { }
 }
 

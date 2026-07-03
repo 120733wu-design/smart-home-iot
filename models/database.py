@@ -42,6 +42,8 @@ def migrate_db(config=None):
             # 人脸登录：users 表增加人脸特征列
             "ALTER TABLE users ADD COLUMN face_feature TEXT NULL COMMENT '单账号仅存储一组人脸特征'",
             "ALTER TABLE users ADD COLUMN face_enabled TINYINT(1) DEFAULT 0",
+            # ml_predictions 表增加 model_type 列以支持多模型
+            "ALTER TABLE ml_predictions ADD COLUMN model_type ENUM('linear_regression','random_forest') DEFAULT 'linear_regression'",
         ]
         for stmt in migrations:
             try:

@@ -43,9 +43,9 @@ class Predictor:
             r2=self.metrics.get(key,{}).get('r2',0); conf=max(0,min(100,r2*100))
             preds.append({'device_id':device_id,'sensor_type':sensor_type,'predicted_value':round(float(pv),2),'confidence':round(float(conf),2),'predicted_at':ft})
             lv.append(float(pv))
-        batch=[(p['device_id'],p['sensor_type'],p['predicted_value'],p['confidence'],p['predicted_at']) for p in preds]
+        batch=[(p['device_id'],p['sensor_type'],p['predicted_value'],p['confidence'],p['predicted_at'],'linear_regression') for p in preds]
         if batch: PredictionModel.batch_insert(batch)
-        return {'device_id':device_id,'sensor_type':sensor_type,'predictions':[{**p,'predicted_at':p['predicted_at'].strftime('%Y-%m-%d %H:%M:%S')} for p in preds],'metrics':self.metrics.get(key,{})}
+        return {'device_id':device_id,'sensor_type':sensor_type,'model_type':'linear_regression','predictions':[{**p,'predicted_at':p['predicted_at'].strftime('%Y-%m-%d %H:%M:%S')} for p in preds],'metrics':self.metrics.get(key,{})}
     def predict_all_devices(self):
         from models.device import DeviceModel
         for d in DeviceModel.list_all():

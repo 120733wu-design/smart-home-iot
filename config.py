@@ -34,6 +34,16 @@ class Config:
     ML_RETRAIN_INTERVAL_MINUTES = 30
     ML_MIN_DATA_HOURS = 48
 
+    # 默认预测模型类型: 'linear_regression' | 'random_forest'
+    ML_DEFAULT_MODEL = 'linear_regression'
+
+    # 随机森林超参数
+    RF_N_ESTIMATORS = 100       # 决策树数量
+    RF_MAX_DEPTH = 10           # 最大深度 (None=不限制)
+    RF_MIN_SAMPLES_SPLIT = 5    # 内部节点再划分所需最小样本数
+    RF_MIN_SAMPLES_LEAF = 2     # 叶节点最少样本数
+    RF_RANDOM_STATE = 42        # 随机种子，保证可重复性
+
     # Flask服务监听0.0.0.0，外网可访问
     DEBUG = os.environ.get('FLASK_DEBUG', '1') == '1'
     HOST = os.environ.get('FLASK_HOST', '0.0.0.0')
